@@ -4,7 +4,7 @@
 **Owner dashboard:** https://control.mactech.app/wow  
 **Public error paste:** https://control.mactech.app/wow/submit  
 **Downloads:** https://github.com/jmacz12/mactech-wow-addons/releases  
-**Donate (Add Mods Stripe account):** set via Mission Control `ADD_MODS_DONATE_URL` (test link until Add Mods is activated for live payments)
+**Donate (Add Mods Stripe, live):** https://donate.stripe.com/9B628t7JXekf4B8gRu6c000
 
 Ascension-first World of Warcraft addons with MacTech Debug export into Mission Control.
 
