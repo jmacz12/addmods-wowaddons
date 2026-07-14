@@ -4,7 +4,7 @@
 **Owner dashboard:** https://control.mactech.app/wow  
 **Public error paste:** https://control.mactech.app/wow/submit  
 **Downloads:** https://github.com/jmacz12/mactech-wow-addons/releases  
-**Donate:** https://donate.stripe.com/9B65kDfTZbMOe1rd3f1sQ01
+**Donate (MacTech Gear Stripe):** https://donate.stripe.com/7sYeVe9G334a9tEeSk0oM00
 
 Ascension-first World of Warcraft addons with MacTech Debug export into Mission Control.
 
