@@ -28,9 +28,18 @@ export default function DownloadPage() {
           then paste at <Link href="/debug" className="text-[var(--accent)] underline">/debug</Link>.
         </li>
       </ol>
-      <p className="mt-8 text-sm text-[var(--muted)]">
-        GitHub Releases will provide a one-click zip once the repo is published. Retail CurseForge/Wago
-        packaging comes after the Ascension flavor is stable.
+      <p className="mt-8">
+        <a
+          className="inline-flex rounded-full bg-[var(--accent)] px-5 py-3 text-white"
+          href="https://github.com/jmacz12/mactech-wow-addons/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Download latest release zip
+        </a>
+      </p>
+      <p className="mt-6 text-sm text-[var(--muted)]">
+        Retail CurseForge/Wago packaging comes after the Ascension flavor is stable.
       </p>
     </main>
   );

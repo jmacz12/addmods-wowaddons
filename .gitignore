@@ -10,7 +10,9 @@ out/
 .DS_Store
 Thumbs.db
 *.zip
+dist/
 .turbo/
+apps/control/.vercel/
 
 # Local WoW client install paths / secrets
 secrets/
