@@ -118,7 +118,7 @@ SlashCmdList.MACTECHDEBUG = function(msg)
     if MacTechAutoSellerDB then
       MacTechAutoSellerDB.lastDebugExport = payload
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[MacTech Debug]|r Export saved. Paste it at control.mactech/debug")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[MacTech Debug]|r Export saved. Paste it at control.mactech.app/wow/submit")
     DEFAULT_CHAT_FRAME:AddMessage(truncate(payload, 240))
     return
   end

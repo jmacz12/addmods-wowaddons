@@ -1,43 +1,36 @@
 import Link from "next/link";
 
-const links = [
-  { href: "/download", label: "Download AutoSeller", desc: "Ascension-ready addon zip + install steps" },
-  { href: "/debug", label: "Submit debug export", desc: "Paste /mtdb export from in-game" },
-  { href: "/errors", label: "Error control", desc: "Password-gated inbox for reports" },
-  { href: "/api/donate", label: "Donate", desc: "Support via Stripe (when linked)" },
-];
-
+/** Legacy mini-site — Mission Control owns the real control room now. */
 export default function HomePage() {
   return (
-    <main className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-16">
-      <header className="max-w-2xl">
-        <p className="font-[family-name:var(--font-mono)] text-sm tracking-[0.2em] text-[var(--accent)]">
-          MACTECH CONTROL
-        </p>
-        <h1 className="mt-4 text-5xl font-semibold tracking-tight text-[var(--ink)] md:text-6xl">
-          MacTech
-        </h1>
-        <p className="mt-4 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
-          WoW addons for Ascension first, retail flavors next — with built-in debug export into this control room.
-        </p>
-      </header>
-
-      <section className="mt-14 grid gap-4 md:grid-cols-2">
-        {links.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-6 backdrop-blur transition hover:-translate-y-0.5 hover:border-[var(--accent)]"
-          >
-            <h2 className="text-xl font-medium">{item.label}</h2>
-            <p className="mt-2 text-[var(--muted)]">{item.desc}</p>
-          </Link>
-        ))}
-      </section>
-
-      <footer className="mt-auto pt-16 font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-        AutoSeller v0.1.0 · Ascension client 1.0.102 · /mtas in-game
-      </footer>
+    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-16">
+      <p className="font-[family-name:var(--font-mono)] text-sm tracking-[0.2em] text-[var(--accent)]">
+        MACTECH CONTROL (LEGACY)
+      </p>
+      <h1 className="mt-4 text-4xl font-semibold tracking-tight">Moved to Mission Control</h1>
+      <p className="mt-4 text-lg text-[var(--muted)]">
+        Addon errors, downloads, and donate links now live under your real owner dashboard.
+      </p>
+      <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+        <a
+          className="rounded-full bg-[var(--accent)] px-6 py-3 text-center text-white"
+          href="https://control.mactech.app/wow"
+        >
+          Open control.mactech.app/wow
+        </a>
+        <a
+          className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-6 py-3 text-center"
+          href="https://control.mactech.app/wow/submit"
+        >
+          Public debug submit
+        </a>
+        <Link
+          className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-6 py-3 text-center"
+          href="https://github.com/jmacz12/mactech-wow-addons/releases/latest"
+        >
+          Download release
+        </Link>
+      </div>
     </main>
   );
 }
