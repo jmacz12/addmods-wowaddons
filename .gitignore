@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+out/
+.env
+.env.local
+.env*.local
+.vercel
+*.log
+.DS_Store
+Thumbs.db
+*.zip
+.turbo/
+
+# Local WoW client install paths / secrets
+secrets/
+*.pem

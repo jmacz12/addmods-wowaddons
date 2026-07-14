@@ -1,0 +1,16 @@
+## Interface: 30300
+## Title: MacTech AutoSeller
+## Notes: Auto-sell junk with keep rules by category and stats. Includes MacTech Debug.
+## Author: MacTech
+## Version: 0.1.0
+## SavedVariables: MacTechAutoSellerDB
+## X-Website: https://control.mactech
+## X-Curse-Project-ID:
+## X-Wago-ID:
+## X-Ascension-Client: 1.0.102
+
+Libs\MacTechDebug.lua
+Core.lua
+Config.lua
+Seller.lua
+UI.lua

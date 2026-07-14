@@ -1,0 +1,9 @@
+{
+  "name": "mactech-wow-addons",
+  "private": true,
+  "scripts": {
+    "dev:control": "npm --prefix apps/control run dev",
+    "build:control": "npm --prefix apps/control run build",
+    "pack:autoseller": "powershell -File scripts/pack-autoseller.ps1"
+  }
+}
