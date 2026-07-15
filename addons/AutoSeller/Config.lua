@@ -307,6 +307,7 @@ function MT:IsWeakerThanEquipped(link)
 end
 
 -- Hard/soft keeps only. Priority for keeps: resources → consumables → keep-by-stats → soulbound/high-end fallbacks.
+-- Exception: items on the remembered sell list skip resource/consumable keeps (player already chose to dump them).
 -- Returns reason string if item is kept, otherwise nil.
 function MT:GetKeepReason(bag, slot, link)
   local db = self.db
@@ -318,16 +319,19 @@ function MT:GetKeepReason(bag, slot, link)
   end
   quality = quality or 0
   local colorSell = self:QualitySellEnabled(quality)
+  local remembered = self:IsRememberedSell(link)
 
-  -- 1) Hard safety: mats / consumables (above stats)
-  if db.keep.resources and self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
-    return "resources"
-  end
-  if db.keep.consumables and self:IsConsumableItem(itemType, itemEquipLoc) then
-    return "consumables"
+  -- 1) Hard safety: mats / consumables (above stats) — remembered dump wins for these only
+  if not remembered then
+    if db.keep.resources and self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
+      return "resources"
+    end
+    if db.keep.consumables and self:IsConsumableItem(itemType, itemEquipLoc) then
+      return "consumables"
+    end
   end
 
-  -- 2) Keep-by-stats (wins over color / weaker)
+  -- 2) Keep-by-stats (wins over color / weaker / remembered)
   if self:ItemHasKeptStat(bag, slot) then
     return "keep-by-stats"
   end

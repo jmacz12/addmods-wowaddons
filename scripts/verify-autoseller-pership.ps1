@@ -7,7 +7,7 @@ $toc = Get-Content (Join-Path $root "AutoSeller.toc") -Raw
 $seller = Get-Content (Join-Path $root "Seller.lua") -Raw
 $fail = New-Object System.Collections.Generic.List[string]
 
-$EXPECTED_VER = "0.3.10"
+$EXPECTED_VER = "0.3.11"
 $tocVer = if ($toc -match '## Version:\s*(\S+)') { $Matches[1] } else { "?" }
 $coreVer = if ($core -match 'MT\.VERSION\s*=\s*"([^"]+)"') { $Matches[1] } else { "?" }
 if ($tocVer -ne $EXPECTED_VER -or $coreVer -ne $EXPECTED_VER) {
@@ -113,16 +113,23 @@ if ($core -notmatch 'jmacz12/addmods-wowaddons/releases') { $fail.Add("Download 
 if ($core -match 'control\.mactech') { $fail.Add("Owner inbox leaked into Core") }
 if ($core -notmatch 'sellArmor') { $fail.Add("sellArmor defaults missing") }
 
-# Mirrors GetKeepReason → GetSellReason (keeps always win; then color → armor → remember → weaker)
+# Mirrors GetKeepReason → GetSellReason
+# Remembered skips resource/consumable keeps only; stats/soulbound/high-end still win.
 function Test-KeepSell([hashtable]$s) {
   if ($s.unsellable) { return "skip:unsellable" }
-  if ($s.resourcesKeep -and $s.isResource) { return "keep:resources" }
-  if ($s.consumablesKeep -and $s.isConsumable) { return "keep:consumables" }
+  if (-not $s.remembered) {
+    if ($s.resourcesKeep -and $s.isResource) { return "keep:resources" }
+    if ($s.consumablesKeep -and $s.isConsumable) { return "keep:consumables" }
+  }
   if ($s.statsOn -and $s.hasStat) { return "keep:stats" }
   if ($s.soulboundKeep -and -not $s.colorSell -and $s.isSoulbound) { return "keep:soulbound" }
   if ($s.highEndKeep -and -not $s.colorSell -and $s.q -ge 3) { return "keep:high-end" }
   if ($s.colorSell) {
-    if ($s.q -eq 1 -and $s.isResource) { return "skip:white-resource" }
+    # White resources never sell via color; remembered can still dump them next
+    if ($s.q -eq 1 -and $s.isResource) {
+      if ($s.remembered) { return "sell:remembered" }
+      return "skip:white-resource"
+    }
     return "sell:color"
   }
   # Armor gear only — cloth/leather mats never count as armorSell in real code
@@ -165,8 +172,8 @@ function Case([string]$name, [string]$exp, [hashtable]$props) {
 
 $cases = @(
   # Hard keeps win over every sell path
-  (Case "herb kept before color/stats/armor" "keep:resources" @{ isResource = $true; statsOn = $true; hasStat = $true; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true; q = 1 }),
-  (Case "potion kept before color" "keep:consumables" @{ isConsumable = $true; colorSell = $true; remembered = $true; q = 1 }),
+  (Case "herb kept before color/stats/armor" "keep:resources" @{ isResource = $true; statsOn = $true; hasStat = $true; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $false; weakerOn = $true; isWeaker = $true; q = 1 }),
+  (Case "potion kept before color" "keep:consumables" @{ isConsumable = $true; colorSell = $true; remembered = $false; q = 1 }),
   (Case "green intellect kept vs green+plate+remember" "keep:stats" @{ statsOn = $true; hasStat = $true; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true; q = 2 }),
 
   # Soft keeps only when color not selling
@@ -186,7 +193,10 @@ $cases = @(
   (Case "green color before plate/remember/weaker" "sell:color" @{ q = 2; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true }),
   (Case "plate before remember/weaker" "sell:armor" @{ q = 2; colorSell = $false; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true }),
   (Case "remembered after keeps no color/armor" "sell:remembered" @{ q = 2; remembered = $true; weakerOn = $true; isWeaker = $true }),
-  (Case "remembered herb still kept" "keep:resources" @{ isResource = $true; remembered = $true; q = 1 }),
+  (Case "remembered herb dumps despite Keep resources" "sell:remembered" @{ isResource = $true; remembered = $true; q = 1 }),
+  (Case "remembered low potion dumps despite Keep consumables" "sell:remembered" @{ isConsumable = $true; remembered = $true; q = 1 }),
+  (Case "remembered green with Intellect still kept by stats" "keep:stats" @{ statsOn = $true; hasStat = $true; remembered = $true; q = 2 }),
+  (Case "unremembered herb still kept" "keep:resources" @{ isResource = $true; remembered = $false; q = 1 }),
   (Case "weaker only if no remember/color/armor" "sell:weaker" @{ q = 2; weakerOn = $true; isWeaker = $true }),
   (Case "blue weaker blocked by quality" "skip" @{ highEndKeep = $false; soulboundKeep = $false; q = 3; weakerOn = $true; isWeaker = $true }),
   (Case "green equal/stronger than equipped = skip" "skip" @{ q = 2; weakerOn = $true; isWeaker = $false }),
