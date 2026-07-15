@@ -53,7 +53,7 @@ function MT:SellEligible()
     end
   end
   self:Print(string.format("Sold %d item(s). Remembered list: %d.", sold, self:CountRememberedSell()))
-  if self.UpdateRememberedLabel then
-    self:UpdateRememberedLabel()
+  if self.RefreshRememberList then
+    self:RefreshRememberList()
   end
 end

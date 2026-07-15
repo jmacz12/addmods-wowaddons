@@ -2,7 +2,7 @@ MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
 MT.ADDON_NAME = "AutoSeller"
-MT.VERSION = "0.2.0"
+MT.VERSION = "0.3.0"
 MT.CHAT_TAG = "|cff55ccffAutoSeller|r"
 
 local defaults = {
@@ -27,7 +27,11 @@ local defaults = {
   },
   minQualityKeep = 3, -- Rare+ kept when highEnd is on (0=poor..5=legendary)
   sellGray = true,
-  rememberedSell = {}, -- [itemId] = true
+  sellWhite = true, -- common (white) items; resources never via this rule
+  sellGreen = false, -- uncommon
+  sellBlue = false, -- rare (also blocked if Keep high-end is on)
+  sellEpic = false, -- purple
+  rememberedSell = {}, -- [itemId] = entry or legacy true
   lastDebugExport = nil,
   learningEvents = {}, -- local buffer; export later for Mission Control
 }
@@ -72,7 +76,7 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("MERCHANT_SHOW")
 frame:SetScript("OnEvent", function(_, event, arg1)
-  if event == "ADDON_LOADED" and arg1 == "MacTech_AutoSeller" then
+  if event == "ADDON_LOADED" and arg1 == "AutoSeller" then
     MacTechDebug:Register(MT.ADDON_NAME, MT.VERSION)
     MT:InitDB()
     MT:InstallSellHook()
@@ -80,7 +84,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     MacTechDebug:SafeCall("CreateUI", function()
       MT:CreateUI()
     end)
-    MT:Print("loaded. /autoseller or /mtas for options")
+    MT:Print("loaded. Interface → AddOns → AutoSeller  (/autoseller)")
   elseif event == "MERCHANT_SHOW" then
     if MT.db and MT.db.enabled then
       MacTechDebug:SafeCall("AutoSellOnMerchant", function()

@@ -3,12 +3,17 @@ param(
   [string]$AscensionPath
 )
 
-$source = Join-Path $PSScriptRoot "..\addons\MacTech_AutoSeller" | Resolve-Path
+$source = Join-Path $PSScriptRoot "..\addons\AutoSeller" | Resolve-Path
 $destRoot = Join-Path $AscensionPath "Interface\AddOns"
-$dest = Join-Path $destRoot "MacTech_AutoSeller"
+$dest = Join-Path $destRoot "AutoSeller"
+$legacy = Join-Path $destRoot "MacTech_AutoSeller"
 
 if (-not (Test-Path $destRoot)) {
   New-Item -ItemType Directory -Force -Path $destRoot | Out-Null
+}
+
+if (Test-Path $legacy) {
+  Remove-Item -Recurse -Force $legacy
 }
 
 if (Test-Path $dest) {
@@ -16,4 +21,4 @@ if (Test-Path $dest) {
 }
 
 Copy-Item -Recurse -Force $source $dest
-Write-Host "Installed AutoSeller (MacTech_AutoSeller folder) -> $dest"
+Write-Host "Installed AutoSeller -> $dest"

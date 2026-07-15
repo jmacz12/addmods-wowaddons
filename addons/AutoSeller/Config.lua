@@ -88,22 +88,79 @@ function MT:IsRememberedSell(link)
   if not id or type(self.db.rememberedSell) ~= "table" then
     return false
   end
-  return self.db.rememberedSell[id] == true
+  local v = self.db.rememberedSell[id]
+  return v == true or type(v) == "table"
 end
 
 function MT:RememberSellItem(link, quality)
   if not self.db.learnOnSell then return end
-  -- Greys already covered by sellGray; remember whites+ you chose to dump
-  if quality and quality < 1 then return end
+  -- Skip qualities already covered by auto-sell toggles
+  quality = quality or 0
+  if quality < 1 then return end
+  if quality == 1 and self.db.sellWhite then return end
+  if quality == 2 and self.db.sellGreen then return end
+  if quality == 3 and self.db.sellBlue then return end
+  if quality == 4 and self.db.sellEpic then return end
   local id = self:GetItemId(link)
   if not id then return end
   if type(self.db.rememberedSell) ~= "table" then
     self.db.rememberedSell = {}
   end
-  if not self.db.rememberedSell[id] then
-    self.db.rememberedSell[id] = true
+  local name = GetItemInfo(link)
+  local prev = self.db.rememberedSell[id]
+  local wasNew = prev == nil
+  if type(prev) == "table" and not name then
+    name = prev.n
+  end
+  self.db.rememberedSell[id] = {
+    t = time(),
+    q = quality or (type(prev) == "table" and prev.q) or 0,
+    n = name or ("Item #" .. id),
+  }
+  if wasNew then
     self:RecordLearning("remembered", { id = id, q = quality })
   end
+  if self.RefreshRememberList then
+    self:RefreshRememberList()
+  end
+end
+
+function MT:ForgetSellItem(id)
+  if type(self.db.rememberedSell) ~= "table" or not id then return end
+  self.db.rememberedSell[id] = nil
+  if self.RefreshRememberList then
+    self:RefreshRememberList()
+  end
+end
+
+function MT:GetRememberedEntries(filter)
+  local list = {}
+  if type(self.db.rememberedSell) ~= "table" then return list end
+  filter = filter and string.lower(filter) or ""
+  for id, v in pairs(self.db.rememberedSell) do
+    local name, q, t
+    if type(v) == "table" then
+      name, q, t = v.n, v.q or 0, v.t or 0
+    else
+      name, q, t = nil, 0, 0
+    end
+    local infoName, _, infoQ = GetItemInfo(id)
+    if infoName then
+      name = infoName
+      q = infoQ or q
+    end
+    if not name or name == "" then
+      name = "Item #" .. id
+    end
+    if filter == "" or string.find(string.lower(name), filter, 1, true) then
+      list[#list + 1] = { id = id, name = name, quality = q or 0, t = t or 0 }
+    end
+  end
+  table.sort(list, function(a, b)
+    if a.t ~= b.t then return a.t > b.t end
+    return a.id > b.id
+  end)
+  return list
 end
 
 function MT:CountRememberedSell()
@@ -118,8 +175,8 @@ end
 function MT:ClearRememberedSell()
   self.db.rememberedSell = {}
   self:Print("Cleared remembered sell list.")
-  if self.UpdateRememberedLabel then
-    self:UpdateRememberedLabel()
+  if self.RefreshRememberList then
+    self:RefreshRememberList()
   end
 end
 
@@ -164,6 +221,23 @@ function MT:ShouldSellItem(bag, slot, link, quality)
   if self.db.sellGray and quality == 0 then
     return true
   end
+  if self.db.sellWhite and quality == 1 then
+    -- Whites like junk, but never auto-sell resources (even if Keep resources is off)
+    local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
+    if self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
+      return false
+    end
+    return true
+  end
+  if self.db.sellGreen and quality == 2 then
+    return true
+  end
+  if self.db.sellBlue and quality == 3 then
+    return true
+  end
+  if self.db.sellEpic and quality == 4 then
+    return true
+  end
   if self:IsRememberedSell(link) then
     return true
   end
@@ -194,8 +268,8 @@ function MT:InstallSellHook()
     local _, _, quality = GetItemInfo(link)
     MacTechDebug:SafeCall("LearnOnSell", function()
       MT:RememberSellItem(link, quality or 0)
-      if MT.UpdateRememberedLabel then
-        MT:UpdateRememberedLabel()
+      if MT.RefreshRememberList then
+        MT:RefreshRememberList()
       end
     end)
   end)

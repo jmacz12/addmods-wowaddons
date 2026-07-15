@@ -4,7 +4,7 @@
 **Owner inbox:** https://control.mactech.app/wow  
 **Open in Cursor:** `C:\Projects\WoW-Addons`
 
-**Brand lock:** Portfolio brand is **Add Mods** (not MacTech Gear). Addon in-game name is just **AutoSeller**. Folder/`SavedVariables` still use legacy `MacTech_*` names — full migrate later. Mission Control at `control.mactech.app` stays as *your* ops hub; players should not see “MacTech” on the addon.
+**Brand lock:** Portfolio brand is **Add Mods** (not MacTech Gear). Addon in-game name is just **AutoSeller** — never prefix “Add Mods” onto addon titles. `SavedVariables` still `MacTechAutoSellerDB` until careful migrate. Mission Control at `control.mactech.app` stays as *your* ops hub; players should not see “MacTech” on the addon.
 
 **Forward only** — keep building, don’t live in planning docs.
 
@@ -12,22 +12,24 @@
 
 ## Last ship
 
-**2026-07-15:** Ascension AutoSeller **v0.2.0** on GitHub Releases — Sell junk, remembered sell list, keep-by-stats; in-game name AutoSeller.
-
-**Prior:** v0.1.0 + Mission Control `/wow` + Stripe Add Mods donate (2026-07-14).
+**2026-07-15:** Ascension AutoSeller **v0.3.0** on GitHub Releases — Interface→AddOns settings, quality sell toggles, remember list manager, bag button.
 
 ---
 
 ## Current focus
 
-**Next build slice** — pick when ready (say “what’s next” or name one):
+### Next (when you say build)
 
-- Full folder / SavedVariables rename off MacTech (careful migrate)
+Pick from Later — or Ascension Discord share / Mission Control learning flush.
+
+### Later
+
 - Opt-in learning flush → Mission Control (beyond paste)
-- Ascension Discord share (optional, after you’re happy with v0.2.0 in-game)
-- Ascension launcher Addon-Request
+- Ascension Discord share / launcher Addon-Request
+- Finish SavedVariables rename off MacTech
 - Retail flavor + CurseForge / Wago when ready
 - More addons under Add Mods
+- Custom logo art · confirm dialogs for greys
 
 **Not blocking:** CurseForge (retail only).
 
@@ -46,29 +48,19 @@ Until there is a **retail-compatible** build, CurseForge is the wrong store. **D
 
 ---
 
-## Later
-
-- [ ] Rebrand fully: repo name / release title / addon folder / SavedVariables / README
-- [ ] Opt-in learning flush → Mission Control (beyond paste)
-- [ ] Ascension Discord share (optional)
-- [ ] Ascension launcher Addon-Request (optional)
-- [ ] Retail flavor + CurseForge / Wago when ready
-- [ ] More addons under Add Mods
-
----
-
 ## New session — start here
 
 ```
 WoW-Addons — read tools + ROADMAP. Focus Ascension only.
 
-Brand: Add Mods portfolio; addon names stay short (AutoSeller). No MacTech for players. Folder/SavedVariables migrate later.
+Brand: Add Mods portfolio; addon titles stay short (AutoSeller only — never "Add Mods AutoSeller"). No MacTech for players. SavedVariables still MacTechAutoSellerDB until careful migrate.
 
-Done: AutoSeller v0.2.0 on GitHub Releases (sell junk + remembered list + keep-by-stats). Mission Control /wow + Stripe donate live.
+Done: AutoSeller v0.3.0 on GitHub Releases (settings UX, quality sells, bag button). Mission Control /wow + Stripe donate live.
 
-Next: ask "what's next" for the recommended slice. CurseForge deferred until retail.
+Next: pick from ROADMAP Later (Discord share, learning flush, SavedVariables rename, or next addon).
 
 Canonical: C:\Projects\WoW-Addons
+Ascension path: C:\Ascension\Launcher\resources\ascension-live
 ```
 
 **Read first:** `C:\Projects\_tools\OWNER-PLAYBOOK.md` · `SESSION-START.md` · this ROADMAP · `docs/CHANGELOG.md`.
