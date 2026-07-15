@@ -12,7 +12,7 @@
 
 ## Last ship
 
-**2026-07-15:** Ascension **AutoSeller & Repair v0.3.2** — then public-facing cleanup: repo renamed to `addmods-wowaddons`, Mission Control links removed from public README / GitHub homepage.
+**2026-07-15:** Ascension **AutoSeller & Repair v0.3.8** live on GitHub Releases (UI polish + repair-now fix). Public repo: `addmods-wowaddons`.
 
 ---
 
@@ -20,16 +20,15 @@
 
 ### Next (when you say build)
 
-Pick from Later — or Ascension Discord share / Mission Control learning flush.
+- Opt-in learning flush → Mission Control (beyond paste; slash/db still present, panel UI removed)
+- Ascension Discord / launcher Addon-Request
 
 ### Later
 
-- Opt-in learning flush → Mission Control (beyond paste)
-- Ascension Discord / launcher Addon-Request
-- Finish SavedVariables rename off MacTech
+- Finish SavedVariables rename off MacTech (careful migrate)
 - Retail flavor + CurseForge / Wago when ready
 - More addons under Add Mods
-- Custom logo art · confirm dialogs for greys
+- Custom logo art
 
 **Not blocking:** CurseForge (retail only).
 
@@ -49,16 +48,7 @@ Public GitHub profile should only show **`addmods-wowaddons`**.
 ## New session — start here
 
 ```
-WoW-Addons — read tools + ROADMAP. Focus Ascension only.
-
-Brand: Add Mods; addon title AutoSeller & Repair. No MacTech for players. SavedVariables still MacTechAutoSellerDB until careful migrate.
-
-Done: AutoSeller & Repair v0.3.2. Repo: jmacz12/addmods-wowaddons (only public). Owner inbox: control.mactech.app/wow (not on public README).
-
-Next: pick from ROADMAP Later.
-
-Canonical: C:\Projects\WoW-Addons
-Ascension path: C:\Ascension\Launcher\resources\ascension-live
+WoW-Addons — read tools + ROADMAP. What's next?
 ```
 
 **Read first:** `C:\Projects\_tools\OWNER-PLAYBOOK.md` · `SESSION-START.md` · this ROADMAP · `docs/CHANGELOG.md`.

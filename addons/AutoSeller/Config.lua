@@ -14,12 +14,13 @@ local RESOURCE_SUBTYPES = {
   ["Other"] = true,
 }
 
+-- Lua patterns: literal "+" must be "%+" (a leading "+" crashes string.find and aborts auto-sell).
 local STAT_PATTERNS = {
-  intellect = { "+(%d+) Intellect", "Intellect %+(%d+)" },
-  stamina = { "+(%d+) Stamina", "Stamina %+(%d+)" },
-  spirit = { "+(%d+) Spirit", "Spirit %+(%d+)" },
-  agility = { "+(%d+) Agility", "Agility %+(%d+)" },
-  strength = { "+(%d+) Strength", "Strength %+(%d+)" },
+  intellect = { "%+(%d+) Intellect", "Intellect %+(%d+)" },
+  stamina = { "%+(%d+) Stamina", "Stamina %+(%d+)" },
+  spirit = { "%+(%d+) Spirit", "Spirit %+(%d+)" },
+  agility = { "%+(%d+) Agility", "Agility %+(%d+)" },
+  strength = { "%+(%d+) Strength", "Strength %+(%d+)" },
   haste = { "[Ii]ncreases? your haste", "Haste Rating" },
   crit = { "[Cc]ritical [Ss]trike", "Crit Rating" },
   hit = { "[Ii]mproves? hit", "Hit Rating" },
@@ -80,7 +81,8 @@ function MT:ItemHasKeptStat(bag, slot)
   for stat, patterns in pairs(STAT_PATTERNS) do
     if by[stat] then
       for _, pat in ipairs(patterns) do
-        if blob:find(pat) then
+        local ok, found = pcall(string.find, blob, pat)
+        if ok and found then
           return true
         end
       end
@@ -186,41 +188,141 @@ function MT:ClearRememberedSell()
   end
 end
 
-function MT:ShouldKeepItem(bag, slot, link)
+function MT:QualitySellEnabled(quality)
+  quality = quality or 0
   local db = self.db
-  if not link then return true end
+  if not db then return false end
+  if quality == 0 then return db.sellGray and true or false end
+  if quality == 1 then return db.sellWhite and true or false end
+  if quality == 2 then return db.sellGreen and true or false end
+  if quality == 3 then return db.sellBlue and true or false end
+  if quality == 4 then return db.sellEpic and true or false end
+  return false
+end
+
+-- Equip locations → inventory slots (WotLK / Ascension)
+local EQUIP_LOC_TO_SLOTS = {
+  INVTYPE_HEAD = { 1 },
+  INVTYPE_NECK = { 2 },
+  INVTYPE_SHOULDER = { 3 },
+  INVTYPE_BODY = { 4 },
+  INVTYPE_CHEST = { 5 },
+  INVTYPE_ROBE = { 5 },
+  INVTYPE_WAIST = { 6 },
+  INVTYPE_LEGS = { 7 },
+  INVTYPE_FEET = { 8 },
+  INVTYPE_WRIST = { 9 },
+  INVTYPE_HAND = { 10 },
+  INVTYPE_FINGER = { 11, 12 },
+  INVTYPE_TRINKET = { 13, 14 },
+  INVTYPE_CLOAK = { 15 },
+  INVTYPE_WEAPON = { 16, 17 },
+  INVTYPE_2HWEAPON = { 16 },
+  INVTYPE_WEAPONMAINHAND = { 16 },
+  INVTYPE_WEAPONOFFHAND = { 17 },
+  INVTYPE_HOLDABLE = { 17 },
+  INVTYPE_SHIELD = { 17 },
+  INVTYPE_RANGED = { 18 },
+  INVTYPE_RANGEDRIGHT = { 18 },
+  INVTYPE_THROWN = { 18 },
+  INVTYPE_RELIC = { 18 },
+}
+
+local WEAKER_MAX_QUALITY = 2 -- green and below only
+
+function MT:GetItemLevel(link)
+  if not link then return nil end
+  local _, _, _, ilvl = GetItemInfo(link)
+  return tonumber(ilvl)
+end
+
+-- True when bag gear is strictly weaker (ilvl) than every filled equipped slot for that type.
+-- Empty slot → not weaker (might be an upgrade). Dual slots (rings/trinkets/1H): must beat both.
+function MT:IsWeakerThanEquipped(link)
+  if not link or not self.db or not self.db.sellWeakerThanEquipped then
+    return false
+  end
+  local name, _, quality, itemLevel, _, _, _, _, itemEquipLoc = GetItemInfo(link)
+  if not name or not itemEquipLoc or itemEquipLoc == "" then
+    return false
+  end
+  quality = quality or 0
+  if quality > WEAKER_MAX_QUALITY then
+    return false
+  end
+  itemLevel = tonumber(itemLevel)
+  if not itemLevel then
+    return false
+  end
+  local slots = EQUIP_LOC_TO_SLOTS[itemEquipLoc]
+  if not slots then
+    return false
+  end
+
+  local compared = 0
+  for _, invSlot in ipairs(slots) do
+    local eqLink = GetInventoryItemLink("player", invSlot)
+    if not eqLink then
+      -- Empty slot: bag piece could be an upgrade
+      return false
+    end
+    local eqIlvl = self:GetItemLevel(eqLink)
+    if not eqIlvl then
+      return false
+    end
+    compared = compared + 1
+    if itemLevel >= eqIlvl then
+      return false
+    end
+  end
+  return compared > 0
+end
+
+-- Hard/soft keeps only. Priority for keeps: resources → consumables → keep-by-stats → soulbound/high-end fallbacks.
+-- Returns reason string if item is kept, otherwise nil.
+function MT:GetKeepReason(bag, slot, link)
+  local db = self.db
+  if not link then return "no-link" end
 
   local name, _, quality, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
   if not name then
-    return true -- unknown: safe keep
+    return "unknown-item"
+  end
+  quality = quality or 0
+  local colorSell = self:QualitySellEnabled(quality)
+
+  -- 1) Hard safety: mats / consumables (above stats)
+  if db.keep.resources and self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
+    return "resources"
+  end
+  if db.keep.consumables and self:IsConsumableItem(itemType, itemEquipLoc) then
+    return "consumables"
   end
 
-  if db.keep.soulbound then
+  -- 2) Keep-by-stats (wins over color / weaker)
+  if self:ItemHasKeptStat(bag, slot) then
+    return "keep-by-stats"
+  end
+
+  -- Soft fallbacks when that color is NOT set to sell (do not override Color)
+  if db.keep.soulbound and not colorSell then
     local lines = self:GetTooltipLines(bag, slot)
     for _, line in ipairs(lines) do
-      if line:find("Soulbound") or line:find("Binds when picked up") then
-        return true
+      if line:find("Soulbound", 1, true) or line:find("Binds when picked up", 1, true) then
+        return "soulbound"
       end
     end
   end
 
-  if db.keep.highEnd and quality and quality >= (db.minQualityKeep or 3) then
-    return true
+  if db.keep.highEnd and quality >= (db.minQualityKeep or 3) and not colorSell then
+    return "high-end"
   end
 
-  if db.keep.resources and self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
-    return true
-  end
+  return nil
+end
 
-  if db.keep.consumables and self:IsConsumableItem(itemType, itemEquipLoc) then
-    return true
-  end
-
-  if self:ItemHasKeptStat(bag, slot) then
-    return true
-  end
-
-  return false
+function MT:ShouldKeepItem(bag, slot, link)
+  return self:GetKeepReason(bag, slot, link) ~= nil
 end
 
 function MT:ItemIsVendorable(bag, slot, link)
@@ -244,38 +346,43 @@ function MT:ItemIsVendorable(bag, slot, link)
   return true
 end
 
-function MT:ShouldSellItem(bag, slot, link, quality)
+-- Sell reason after keeps: color → remembered → weaker. Returns reason or nil.
+function MT:GetSellReason(bag, slot, link, quality)
   if self:ShouldKeepItem(bag, slot, link) then
-    return false
+    return nil
   end
   if not self:ItemIsVendorable(bag, slot, link) then
-    return false
+    return nil
   end
-  quality = quality or 0
-  if self.db.sellGray and quality == 0 then
-    return true
-  end
-  if self.db.sellWhite and quality == 1 then
-    -- Whites like junk, but never auto-sell resources (even if Keep resources is off)
-    local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
-    if self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
-      return false
+  quality = quality or select(3, GetItemInfo(link)) or 0
+
+  -- 3) Color sells
+  if self:QualitySellEnabled(quality) then
+    if quality == 1 then
+      -- Whites like junk, but never auto-sell resources (even if Keep resources is off)
+      local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
+      if self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
+        return nil
+      end
     end
-    return true
+    return "color"
   end
-  if self.db.sellGreen and quality == 2 then
-    return true
-  end
-  if self.db.sellBlue and quality == 3 then
-    return true
-  end
-  if self.db.sellEpic and quality == 4 then
-    return true
-  end
+
+  -- 4) Remembered list
   if self:IsRememberedSell(link) then
-    return true
+    return "remembered"
   end
-  return false
+
+  -- 5) Weaker than equipped (ilvl; green and below; opt-in)
+  if self:IsWeakerThanEquipped(link) then
+    return "weaker"
+  end
+
+  return nil
+end
+
+function MT:ShouldSellItem(bag, slot, link, quality)
+  return self:GetSellReason(bag, slot, link, quality) ~= nil
 end
 
 function MT:RecordLearning(eventType, payload)

@@ -2,8 +2,10 @@ MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
 MT.ADDON_NAME = "AutoSeller & Repair"
-MT.VERSION = "0.3.2"
+MT.VERSION = "0.3.8"
 MT.CHAT_TAG = "|cff55ccffAutoSeller & Repair|r"
+MT.DONATE_URL = "https://donate.stripe.com/4gM5kF0hv5NJ1oW1WA6c001"
+MT.DOWNLOAD_URL = "https://github.com/jmacz12/addmods-wowaddons/releases"
 
 local defaults = {
   enabled = true,
@@ -30,8 +32,9 @@ local defaults = {
   sellGray = true,
   sellWhite = true, -- common (white) items; resources never via this rule
   sellGreen = false, -- uncommon
-  sellBlue = false, -- rare (also blocked if Keep high-end is on)
+  sellBlue = false, -- rare; High-end keep only applies when Blue is not set to sell
   sellEpic = false, -- purple
+  sellWeakerThanEquipped = false, -- opt-in: sell green-and-below gear with lower ilvl than equipped
   autoRepair = true, -- repair gear when opening a merchant that can repair
   repairPay = "personal", -- personal | guild | guild_first
   rememberedSell = {}, -- [itemId] = entry or legacy true
@@ -90,7 +93,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     MacTechDebug:SafeCall("CreateUI", function()
       MT:CreateUI()
     end)
-    MT:Print("loaded. Interface → AddOns → AutoSeller & Repair / Rules  (/autoseller). Sell + auto-repair at merchants.")
+    MT:Print("loaded. /autoseller for options.")
   elseif event == "MERCHANT_SHOW" then
     MacTechDebug:SafeCall("AutoRepairOnMerchant", function()
       if MT.TryAutoRepair then MT:TryAutoRepair() end
@@ -104,8 +107,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 SLASH_ADDMODSAS1 = "/autoseller"
-SLASH_ADDMODSAS2 = "/mtas"
-SLASH_ADDMODSAS3 = "/ams"
+SLASH_ADDMODSAS2 = "/ams"
 SlashCmdList.ADDMODSAS = function(msg)
   msg = strtrim(string.lower(msg or ""))
   if msg == "sell" or msg == "junk" then

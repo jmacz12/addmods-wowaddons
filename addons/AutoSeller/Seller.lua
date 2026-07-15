@@ -28,8 +28,10 @@ function MT:CanUseGuildRepair(cost)
   return true
 end
 
-function MT:TryAutoRepair()
-  if not self.db or not self.db.autoRepair then return end
+-- force=true: manual "Repair now" (ignores auto-repair toggle). Default: only when auto-repair is on.
+function MT:TryAutoRepair(force)
+  if not self.db then return end
+  if not force and not self.db.autoRepair then return end
   if not MerchantFrame or not MerchantFrame:IsShown() then return end
   if not CanMerchantRepair or not CanMerchantRepair() then return end
 
@@ -82,7 +84,12 @@ function MT:TryAutoRepair()
 end
 
 function MT:ScanInventory(printSummary)
-  local sellable, kept, gray, remembered = {}, {}, 0, 0
+  local sellable, kept = {}, {}
+  local gray, remembered = 0, 0
+  local keepReasons, sellReasons = {}, {}
+  local greenKept, greenSell = 0, 0
+  local statsHeld, weakerSell = 0, 0
+
   for bag = 0, 4 do
     local slots = GetContainerNumSlots(bag)
     for slot = 1, slots do
@@ -90,29 +97,72 @@ function MT:ScanInventory(printSummary)
       if link then
         local _, _, quality = GetItemInfo(link)
         quality = quality or 0
-        local keep = self:ShouldKeepItem(bag, slot, link)
+        local keepReason = self:GetKeepReason(bag, slot, link)
         local entry = { bag = bag, slot = slot, link = link, quality = quality }
-        if keep then
+        if keepReason then
+          entry.reason = keepReason
           kept[#kept + 1] = entry
+          keepReasons[keepReason] = (keepReasons[keepReason] or 0) + 1
+          if keepReason == "keep-by-stats" then
+            statsHeld = statsHeld + 1
+          end
+          if quality == 2 then
+            greenKept = greenKept + 1
+          end
         else
           if quality == 0 then
             gray = gray + 1
           end
-          if self:IsRememberedSell(link) then
-            remembered = remembered + 1
-          end
-          if self:ShouldSellItem(bag, slot, link, quality) then
+          local sellReason = self:GetSellReason(bag, slot, link, quality)
+          if sellReason then
+            entry.reason = sellReason
             sellable[#sellable + 1] = entry
+            sellReasons[sellReason] = (sellReasons[sellReason] or 0) + 1
+            if sellReason == "remembered" then
+              remembered = remembered + 1
+            end
+            if sellReason == "weaker" then
+              weakerSell = weakerSell + 1
+            end
+            if quality == 2 then
+              greenSell = greenSell + 1
+            end
+          elseif quality == 2 and self.db.sellGreen then
+            keepReasons["unsellable"] = (keepReasons["unsellable"] or 0) + 1
+            greenKept = greenKept + 1
           end
         end
       end
     end
   end
+
   if printSummary then
     self:Print(string.format(
       "scan: %d keep, %d sell (%d gray, %d remembered)",
       #kept, #sellable, gray, remembered
     ))
+    if statsHeld > 0 or weakerSell > 0 or self.db.sellWeakerThanEquipped then
+      self:Print(string.format("priority: keep-by-stats=%d held, weaker=%d will sell", statsHeld, weakerSell))
+    end
+    if self.db.sellGreen then
+      self:Print(string.format("green: %d will sell, %d held back", greenSell, greenKept))
+    end
+    local holdParts = {}
+    for reason, n in pairs(keepReasons) do
+      holdParts[#holdParts + 1] = string.format("%s=%d", reason, n)
+    end
+    table.sort(holdParts)
+    if #holdParts > 0 then
+      self:Print("held by: " .. table.concat(holdParts, ", "))
+    end
+    local sellParts = {}
+    for reason, n in pairs(sellReasons) do
+      sellParts[#sellParts + 1] = string.format("%s=%d", reason, n)
+    end
+    table.sort(sellParts)
+    if #sellParts > 0 then
+      self:Print("sell via: " .. table.concat(sellParts, ", "))
+    end
   end
   return sellable, kept
 end

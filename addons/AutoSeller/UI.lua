@@ -1,6 +1,7 @@
 local MT = MacTechAutoSeller
 
 local PAGE_SIZE = 8
+local ROW = 26 -- consistent vertical rhythm for Rules checks
 local QUALITY_HEX = {
   [0] = "9d9d9d",
   [1] = "ffffff",
@@ -12,6 +13,41 @@ local QUALITY_HEX = {
   [7] = "e6cc80",
 }
 
+local COL1 = 20
+local COL2 = 200
+local COL3 = 360
+local STAT_COL_W = 170
+
+StaticPopupDialogs["AUTOSELLER_CLEAR_REMEMBERED"] = {
+  text = "Clear the entire remembered sell list?",
+  button1 = YES,
+  button2 = NO,
+  OnAccept = function()
+    MacTechDebug:SafeCall("UIClearRemembered", function()
+      MT:ClearRememberedSell()
+    end)
+  end,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  preferredIndex = 3,
+}
+
+StaticPopupDialogs["AUTOSELLER_SELL_NOW"] = {
+  text = "Sell all eligible bag items to this merchant?",
+  button1 = YES,
+  button2 = NO,
+  OnAccept = function()
+    MacTechDebug:SafeCall("UISell", function()
+      MT:SellEligible()
+    end)
+  end,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  preferredIndex = 3,
+}
+
 local function SectionHeader(parent, text, x, y)
   local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   fs:SetPoint("TOPLEFT", x, y)
@@ -19,16 +55,29 @@ local function SectionHeader(parent, text, x, y)
   return fs
 end
 
-local function SoftNote(parent, text, x, y)
+local function SoftNote(parent, text, x, y, width)
   local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   fs:SetPoint("TOPLEFT", x, y)
-  fs:SetWidth(420)
+  fs:SetWidth(width or 420)
   fs:SetJustifyH("LEFT")
   fs:SetText(text)
   return fs
 end
 
-local function MakeCheck(parent, label, x, y, get, set)
+local function AttachTooltip(frame, title, body)
+  frame:EnableMouse(true)
+  frame:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title, 1, 0.82, 0)
+    if body then
+      GameTooltip:AddLine(body, 1, 1, 1, true)
+    end
+    GameTooltip:Show()
+  end)
+  frame:SetScript("OnLeave", GameTooltip_Hide)
+end
+
+local function MakeCheck(parent, label, x, y, get, set, registry)
   local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
   cb:SetPoint("TOPLEFT", x, y)
   cb:SetChecked(get())
@@ -38,6 +87,9 @@ local function MakeCheck(parent, label, x, y, get, set)
   local text = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
   text:SetText(label)
+  if registry then
+    registry[#registry + 1] = { cb = cb, get = get }
+  end
   return cb, text
 end
 
@@ -54,6 +106,24 @@ end
 local function QualityColorText(name, quality)
   local hex = QUALITY_HEX[quality or 0] or "ffffff"
   return "|cff" .. hex .. (name or "?") .. "|r"
+end
+
+-- Scrollable content host for Interface Options child panels (WotLK-safe)
+local function MakeScrollBody(panel, topInset)
+  local scroll = CreateFrame("ScrollFrame", panel:GetName() .. "Scroll", panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 4, topInset or -52)
+  scroll:SetPoint("BOTTOMRIGHT", -28, 8)
+
+  local child = CreateFrame("Frame", nil, scroll)
+  child:SetWidth(520)
+  child:SetHeight(200)
+  scroll:SetScrollChild(child)
+
+  function child:SetContentHeight(h)
+    self:SetHeight(math.max(200, h or 200))
+  end
+
+  return child, scroll
 end
 
 function MT:RefreshRememberList()
@@ -114,30 +184,26 @@ function MT:CreateUI()
   title:SetPoint("TOPLEFT", 16, -16)
   title:SetText("AutoSeller & Repair")
 
-  SoftNote(panel, "Remembered sell list. Rules page: what to sell, keep, and auto-repair at merchants.", 16, -40)
+  SoftNote(panel, "Items you've sold that stay on the auto-sell list.", 16, -40)
 
-  local y = -68
+  local body = MakeScrollBody(panel, -58)
+  local y = -8
 
-  MakeCheck(panel, "Remember items I sell (auto next time)", 16, y,
+  MakeCheck(body, "Remember items I sell (auto next time)", COL1, y,
     function() return MT.db.learnOnSell end,
     function(v) MT.db.learnOnSell = v end)
-  y = y - 26
-
-  MakeCheck(panel, "Opt-in learning buffer (Mission Control export)", 16, y,
-    function() return MT.db.optInLearning end,
-    function(v) MT.db.optInLearning = v end)
   y = y - 30
 
-  local countLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  countLabel:SetPoint("TOPLEFT", 16, y)
+  local countLabel = body:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  countLabel:SetPoint("TOPLEFT", COL1, y)
   countLabel:SetText("0 remembered")
   panel.countLabel = countLabel
 
-  local searchLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  local searchLabel = body:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   searchLabel:SetPoint("LEFT", countLabel, "RIGHT", 24, 0)
   searchLabel:SetText("Search")
 
-  local searchBox = CreateFrame("EditBox", "AutoSellerRememberSearch", panel, "InputBoxTemplate")
+  local searchBox = CreateFrame("EditBox", "AutoSellerRememberSearch", body, "InputBoxTemplate")
   searchBox:SetSize(180, 20)
   searchBox:SetPoint("LEFT", searchLabel, "RIGHT", 8, 0)
   searchBox:SetAutoFocus(false)
@@ -149,20 +215,16 @@ function MT:CreateUI()
   panel.searchBox = searchBox
   y = y - 28
 
-  -- List header bar
-  local listHead = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  listHead:SetPoint("TOPLEFT", 20, y)
+  local listHead = body:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  listHead:SetPoint("TOPLEFT", COL1 + 4, y)
   listHead:SetText("Item")
-  local listHeadDel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  listHeadDel:SetPoint("TOPLEFT", 380, y)
-  listHeadDel:SetText("")
   y = y - 18
 
   panel.rememberRows = {}
   for i = 1, PAGE_SIZE do
-    local row = CreateFrame("Frame", nil, panel)
+    local row = CreateFrame("Frame", nil, body)
     row:SetSize(440, 20)
-    row:SetPoint("TOPLEFT", 16, y - ((i - 1) * 22))
+    row:SetPoint("TOPLEFT", COL1, y - ((i - 1) * 22))
 
     local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     label:SetPoint("LEFT", 4, 0)
@@ -187,9 +249,9 @@ function MT:CreateUI()
   end
   y = y - (PAGE_SIZE * 22) - 10
 
-  local prevBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+  local prevBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
   prevBtn:SetSize(72, 22)
-  prevBtn:SetPoint("TOPLEFT", 16, y)
+  prevBtn:SetPoint("TOPLEFT", COL1, y)
   prevBtn:SetText("Previous")
   prevBtn:SetScript("OnClick", function()
     panel.rememberPage = math.max(1, (panel.rememberPage or 1) - 1)
@@ -197,12 +259,12 @@ function MT:CreateUI()
   end)
   panel.prevBtn = prevBtn
 
-  local pageLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  local pageLabel = body:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   pageLabel:SetPoint("LEFT", prevBtn, "RIGHT", 12, 0)
   pageLabel:SetText("Page 1 / 1")
   panel.pageLabel = pageLabel
 
-  local nextBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+  local nextBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
   nextBtn:SetSize(72, 22)
   nextBtn:SetPoint("LEFT", pageLabel, "RIGHT", 12, 0)
   nextBtn:SetText("Next")
@@ -212,16 +274,16 @@ function MT:CreateUI()
   end)
   panel.nextBtn = nextBtn
 
-  local forgetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+  local forgetBtn = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
   forgetBtn:SetSize(90, 22)
   forgetBtn:SetPoint("LEFT", nextBtn, "RIGHT", 16, 0)
   forgetBtn:SetText("Clear all")
   forgetBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UIClearRemembered", function() MT:ClearRememberedSell() end)
+    StaticPopup_Show("AUTOSELLER_CLEAR_REMEMBERED")
   end)
 
   y = y - 36
-  SoftNote(panel, "Tip: open Rules (under AutoSeller & Repair) to choose what sells, what is kept, and auto-repair.", 16, y)
+  body:SetContentHeight(-y + 24)
 
   panel:SetScript("OnShow", function()
     MT:RefreshRememberList()
@@ -231,81 +293,139 @@ function MT:CreateUI()
   self.optionsPanel = panel
   self.frame = panel
 
-  -- Child: Sell & Keep (Rules)
+  -- Child: Rules (scrollable)
   local rules = CreateFrame("Frame", "AutoSellerKeepOptionsPanel", UIParent)
   rules.name = "Rules"
   rules.parent = "AutoSeller & Repair"
   rules:Hide()
 
+  local rulesSync = {} -- simple option checks refreshed on OnShow
+
   local rulesTitle = rules:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   rulesTitle:SetPoint("TOPLEFT", 16, -16)
   rulesTitle:SetText("Rules")
 
-  SoftNote(rules, "At merchants: sell junk by your rules, keep what you mark, and optionally auto-repair.", 16, -40)
+  SoftNote(rules, "Keep filters, quality sells, and auto-repair. Scroll for all options.", 16, -40)
 
-  local ky = -68
+  local rb = MakeScrollBody(rules, -58)
+  local ky = -8
 
-  -- Selling
-  SectionHeader(rules, "Selling", 16, ky)
-  ky = ky - 24
-
-  MakeCheck(rules, "Enable auto-sell at merchants", 16, ky,
-    function() return MT.db.enabled end,
-    function(v) MT.db.enabled = v end)
-  ky = ky - 28
-
-  MakeCheck(rules, "Gray junk", 16, ky,
-    function() return MT.db.sellGray end,
-    function(v) MT.db.sellGray = v end)
-  MakeCheck(rules, "White (not resources)", 160, ky,
-    function() return MT.db.sellWhite end,
-    function(v) MT.db.sellWhite = v end)
-  ky = ky - 26
-
-  MakeCheck(rules, "Green", 16, ky,
-    function() return MT.db.sellGreen end,
-    function(v) MT.db.sellGreen = v end)
-  MakeCheck(rules, "Blue", 120, ky,
-    function() return MT.db.sellBlue end,
-    function(v) MT.db.sellBlue = v end)
-  MakeCheck(rules, "Purple", 220, ky,
-    function() return MT.db.sellEpic end,
-    function(v) MT.db.sellEpic = v end)
+  -- Keep by stats FIRST (near top)
+  SectionHeader(rb, "Keep by stats", COL1, ky)
   ky = ky - 22
 
-  SoftNote(rules, "Colored sells still respect Keep rules below (high-end, soulbound, stats).", 20, ky)
-  ky = ky - 28
-
-  -- Repair
-  SectionHeader(rules, "Auto-repair", 16, ky)
+  local enableStatsCb = MakeCheck(rb, "Enable keep-by-stats", COL1, ky,
+    function() return MT.db.keep.byStats.enabled end,
+    function(v)
+      MT.db.keep.byStats.enabled = v
+      MT:RefreshStatChecksEnabled()
+    end, rulesSync)
+  ky = ky - 22
+  SoftNote(rb, "When enabled, gear with checked stats is never sold — even if Green/Blue is checked.", COL1 + 4, ky, 460)
   ky = ky - 24
 
-  local repairCb = MakeCheck(rules, "Repair gear when talking to a vendor", 16, ky,
+  local stats = { "Intellect", "Stamina", "Spirit", "Agility", "Strength", "Haste", "Crit", "Hit" }
+  local statKeys = { "intellect", "stamina", "spirit", "agility", "strength", "haste", "crit", "hit" }
+  rb.statChecks = {}
+  local gridTop = ky
+  for i, key in ipairs(statKeys) do
+    local col = ((i - 1) % 2)
+    local rowN = math.floor((i - 1) / 2)
+    local sx = COL1 + 8 + (col * STAT_COL_W)
+    local sy = gridTop - (rowN * ROW)
+    local cb, text = MakeCheck(rb, stats[i], sx, sy,
+      function() return MT.db.keep.byStats[key] end,
+      function(v) MT.db.keep.byStats[key] = v end, rulesSync)
+    rb.statChecks[#rb.statChecks + 1] = { cb = cb, text = text }
+  end
+  ky = gridTop - (math.ceil(#statKeys / 2) * ROW) - 14
+
+  -- Keep (other)
+  SectionHeader(rb, "Keep", COL1, ky)
+  ky = ky - 22
+
+  MakeCheck(rb, "Resources / trade goods", COL1, ky,
+    function() return MT.db.keep.resources end,
+    function(v) MT.db.keep.resources = v end, rulesSync)
+  MakeCheck(rb, "High-end (Rare+)", COL2, ky,
+    function() return MT.db.keep.highEnd end,
+    function(v) MT.db.keep.highEnd = v end, rulesSync)
+  ky = ky - ROW
+
+  MakeCheck(rb, "Consumables (potions, food, scrolls...)", COL1, ky,
+    function() return MT.db.keep.consumables end,
+    function(v) MT.db.keep.consumables = v end, rulesSync)
+  ky = ky - ROW
+
+  local soulCb = MakeCheck(rb, "Soulbound (if color not selling)", COL1, ky,
+    function() return MT.db.keep.soulbound end,
+    function(v) MT.db.keep.soulbound = v end, rulesSync)
+  AttachTooltip(soulCb, "Soulbound", "Keeps soulbound items only when that quality color is not set to sell.")
+  ky = ky - 30
+
+  -- Selling
+  SectionHeader(rb, "Selling", COL1, ky)
+  ky = ky - 22
+
+  MakeCheck(rb, "Enable auto-sell at merchants", COL1, ky,
+    function() return MT.db.enabled end,
+    function(v) MT.db.enabled = v end, rulesSync)
+  ky = ky - ROW
+
+  MakeCheck(rb, "Gray junk", COL1, ky,
+    function() return MT.db.sellGray end,
+    function(v) MT.db.sellGray = v end, rulesSync)
+  MakeCheck(rb, "White (not resources)", COL2, ky,
+    function() return MT.db.sellWhite end,
+    function(v) MT.db.sellWhite = v end, rulesSync)
+  ky = ky - ROW
+
+  MakeCheck(rb, "Green", COL1, ky,
+    function() return MT.db.sellGreen end,
+    function(v) MT.db.sellGreen = v end, rulesSync)
+  MakeCheck(rb, "Blue", COL2, ky,
+    function() return MT.db.sellBlue end,
+    function(v) MT.db.sellBlue = v end, rulesSync)
+  MakeCheck(rb, "Purple", COL3, ky,
+    function() return MT.db.sellEpic end,
+    function(v) MT.db.sellEpic = v end, rulesSync)
+  ky = ky - ROW
+
+  MakeCheck(rb, "Sell weaker than equipped (ilvl, green and below)", COL1, ky,
+    function() return MT.db.sellWeakerThanEquipped end,
+    function(v) MT.db.sellWeakerThanEquipped = v end, rulesSync)
+  ky = ky - 22
+  SoftNote(rb, "Priority: resources/consumables → keep-by-stats → color → remembered → weaker (ilvl). Weaker never sells blue/purple.", COL1 + 4, ky, 460)
+  ky = ky - 34
+
+  -- Auto-repair
+  SectionHeader(rb, "Auto-repair", COL1, ky)
+  ky = ky - 22
+
+  local repairCb = MakeCheck(rb, "Repair gear when talking to a vendor", COL1, ky,
     function() return MT.db.autoRepair end,
     function(v)
       MT.db.autoRepair = v
       MT:RefreshRepairPayEnabled()
-    end)
+    end, rulesSync)
   ky = ky - 22
-  SoftNote(rules, "Runs automatically at repair vendors. Chat will say the cost and who paid.", 20, ky)
-  ky = ky - 24
+  SoftNote(rb, "Runs at repair vendors. Chat shows cost and who paid.", COL1 + 4, ky)
+  ky = ky - 22
 
-  local payLabel = rules:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  payLabel:SetPoint("TOPLEFT", 20, ky)
+  local payLabel = rb:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  payLabel:SetPoint("TOPLEFT", COL1 + 4, ky)
   payLabel:SetText("Pay with:")
   ky = ky - 22
 
   local payChecks = {}
-
   local function SetRepairPay(mode)
     MT.db.repairPay = mode
     for key, row in pairs(payChecks) do
       row.cb:SetChecked(key == mode)
     end
   end
-
   local function MakePayCheck(key, label, x, y)
-    local cb, text = MakeCheck(rules, label, x, y,
+    local cb, text = MakeCheck(rb, label, x, y,
       function() return (MT.db.repairPay or "personal") == key end,
       function() end)
     cb:SetScript("OnClick", function()
@@ -314,21 +434,17 @@ function MT:CreateUI()
     payChecks[key] = { cb = cb, text = text }
   end
 
-  MakePayCheck("personal", "My gold", 24, ky)
-  MakePayCheck("guild", "Guild bank", 140, ky)
-  ky = ky - 24
-  MakePayCheck("guild_first", "Guild first, then my gold", 24, ky)
+  MakePayCheck("personal", "My gold", COL1 + 8, ky)
+  MakePayCheck("guild", "Guild bank", COL2, ky)
+  ky = ky - ROW
+  MakePayCheck("guild_first", "Guild first, then my gold", COL1 + 8, ky)
   rules.repairPayChecks = payChecks
   rules.repairPayLabel = payLabel
 
   function MT:RefreshRepairPayEnabled()
     local on = MT.db.autoRepair and true or false
     if payLabel then
-      if on then
-        payLabel:SetTextColor(1, 1, 1)
-      else
-        payLabel:SetTextColor(0.5, 0.5, 0.5)
-      end
+      if on then payLabel:SetTextColor(1, 1, 1) else payLabel:SetTextColor(0.5, 0.5, 0.5) end
     end
     local mode = MT.db.repairPay or "personal"
     for key, row in pairs(payChecks) do
@@ -337,110 +453,157 @@ function MT:CreateUI()
     end
   end
 
-  ky = ky - 30
+  ky = ky - 28
 
-  local sellBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
+  -- Actions: two rows, no debug button (use /amsdebug)
+  local sellBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
   sellBtn:SetSize(100, 24)
-  sellBtn:SetPoint("TOPLEFT", 16, ky)
+  sellBtn:SetPoint("TOPLEFT", COL1, ky)
   sellBtn:SetText("Sell now")
   sellBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
+    if not MerchantFrame or not MerchantFrame:IsShown() then
+      MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
+      return
+    end
+    StaticPopup_Show("AUTOSELLER_SELL_NOW")
   end)
 
-  local scanBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
-  scanBtn:SetSize(80, 24)
+  local scanBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
+  scanBtn:SetSize(100, 24)
   scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 8, 0)
   scanBtn:SetText("Scan bags")
   scanBtn:SetScript("OnClick", function()
     MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
   end)
 
-  local repairNowBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
-  repairNowBtn:SetSize(90, 24)
-  repairNowBtn:SetPoint("LEFT", scanBtn, "RIGHT", 8, 0)
+  ky = ky - 30
+  local repairNowBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
+  repairNowBtn:SetSize(100, 24)
+  repairNowBtn:SetPoint("TOPLEFT", COL1, ky)
   repairNowBtn:SetText("Repair now")
   repairNowBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UIRepair", function() MT:TryAutoRepair() end)
+    MacTechDebug:SafeCall("UIRepair", function() MT:TryAutoRepair(true) end)
   end)
 
-  local debugBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
-  debugBtn:SetSize(110, 24)
-  debugBtn:SetPoint("LEFT", repairNowBtn, "RIGHT", 8, 0)
-  debugBtn:SetText("Debug export")
-  debugBtn:SetScript("OnClick", function()
-    SlashCmdList.ADDMODSDEBUG("export")
-  end)
-
-  ky = ky - 40
-
-  -- Keep
-  SectionHeader(rules, "Keep", 16, ky)
-  ky = ky - 24
-
-  MakeCheck(rules, "Resources / trade goods", 16, ky,
-    function() return MT.db.keep.resources end,
-    function(v) MT.db.keep.resources = v end)
-  MakeCheck(rules, "High-end (Rare+)", 220, ky,
-    function() return MT.db.keep.highEnd end,
-    function(v) MT.db.keep.highEnd = v end)
-  ky = ky - 26
-
-  MakeCheck(rules, "Consumables (potions, food, scrolls...)", 16, ky,
-    function() return MT.db.keep.consumables end,
-    function(v) MT.db.keep.consumables = v end)
-  ky = ky - 26
-
-  MakeCheck(rules, "Soulbound", 16, ky,
-    function() return MT.db.keep.soulbound end,
-    function(v) MT.db.keep.soulbound = v end)
-  ky = ky - 32
-
-  SectionHeader(rules, "Keep by stats", 16, ky)
-  ky = ky - 24
-
-  local enableStatsCb = MakeCheck(rules, "Enable keep-by-stats", 16, ky,
-    function() return MT.db.keep.byStats.enabled end,
-    function(v)
-      MT.db.keep.byStats.enabled = v
-      MT:RefreshStatChecksEnabled()
-    end)
-  ky = ky - 26
-
-  SoftNote(rules, "When enabled, gear with the selected stats is never sold.", 20, ky)
-  ky = ky - 22
-
-  local stats = { "intellect", "stamina", "spirit", "agility", "strength", "haste", "crit", "hit" }
-  rules.statChecks = {}
-  local col, rowN = 0, 0
-  for _, stat in ipairs(stats) do
-    local sx = 24 + (col * 140)
-    local sy = ky - (rowN * 24)
-    local cb, text = MakeCheck(rules, stat:gsub("^%l", string.upper), sx, sy,
-      function() return MT.db.keep.byStats[stat] end,
-      function(v) MT.db.keep.byStats[stat] = v end)
-    rules.statChecks[#rules.statChecks + 1] = { cb = cb, text = text }
-    col = col + 1
-    if col > 2 then col = 0; rowN = rowN + 1 end
-  end
+  ky = ky - 36
+  rb:SetContentHeight(-ky + 24)
 
   function MT:RefreshStatChecksEnabled()
     local on = MT.db.keep.byStats.enabled and true or false
-    for _, row in ipairs(rules.statChecks or {}) do
+    for _, row in ipairs(rb.statChecks or {}) do
       SetCheckInteractive(row.cb, row.text, on)
     end
   end
 
-  rules:SetScript("OnShow", function()
-    enableStatsCb:SetChecked(MT.db.keep.byStats.enabled)
-    repairCb:SetChecked(MT.db.autoRepair)
+  function MT:RefreshRulesChecks()
+    for _, row in ipairs(rulesSync) do
+      if row.cb and row.get then
+        row.cb:SetChecked(row.get() and true or false)
+      end
+    end
     MT:RefreshStatChecksEnabled()
     MT:RefreshRepairPayEnabled()
+  end
+
+  rules:SetScript("OnShow", function()
+    MT:RefreshRulesChecks()
   end)
 
   InterfaceOptions_AddCategory(rules)
   self.keepOptionsPanel = rules
   self:RefreshStatChecksEnabled()
   self:RefreshRepairPayEnabled()
+
+  -- Child: About (info + donate)
+  local about = CreateFrame("Frame", "AutoSellerAboutOptionsPanel", UIParent)
+  about.name = "About"
+  about.parent = "AutoSeller & Repair"
+  about:Hide()
+
+  local aboutTitle = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  aboutTitle:SetPoint("TOPLEFT", 16, -16)
+  aboutTitle:SetText("About")
+
+  local ab = MakeScrollBody(about, -52)
+  local ay = -8
+
+  SectionHeader(ab, "AutoSeller & Repair", COL1, ay)
+  ay = ay - 22
+  SoftNote(ab, "Free Ascension addon: auto-sell junk and auto-repair at merchants, with keep rules and a remembered sell list.", COL1, ay, 460)
+  ay = ay - 36
+
+  local verLabel = ab:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  verLabel:SetPoint("TOPLEFT", COL1, ay)
+  verLabel:SetText("Version: " .. (MT.VERSION or "?"))
+  about.verLabel = verLabel
+  ay = ay - 28
+
+  SectionHeader(ab, "How to use", COL1, ay)
+  ay = ay - 22
+  SoftNote(ab, "1. Talk to a merchant — eligible junk sells and gear can auto-repair.\n2. Rules sets keep filters, quality sells, and repair.\n3. /autoseller opens options · /autoseller sell|scan for manual actions.", COL1, ay, 460)
+  ay = ay - 58
+
+  SectionHeader(ab, "Download", COL1, ay)
+  ay = ay - 22
+  SoftNote(ab, "Latest release (GitHub):", COL1, ay)
+  ay = ay - 20
+  local dlBox = CreateFrame("EditBox", "AutoSellerDownloadUrlBox", ab, "InputBoxTemplate")
+  dlBox:SetSize(440, 20)
+  dlBox:SetPoint("TOPLEFT", COL1, ay)
+  dlBox:SetAutoFocus(false)
+  dlBox:SetText(MT.DOWNLOAD_URL or "")
+  dlBox:SetCursorPosition(0)
+  dlBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  dlBox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  ay = ay - 32
+
+  SectionHeader(ab, "Support / donate", COL1, ay)
+  ay = ay - 22
+  SoftNote(ab, "Optional — any amount. Nothing in the addon is locked behind a donation.", COL1, ay, 460)
+  ay = ay - 28
+  SoftNote(ab, "Donate link (click the box, Ctrl+C to copy):", COL1, ay)
+  ay = ay - 20
+
+  local donateBox = CreateFrame("EditBox", "AutoSellerDonateUrlBox", ab, "InputBoxTemplate")
+  donateBox:SetSize(440, 20)
+  donateBox:SetPoint("TOPLEFT", COL1, ay)
+  donateBox:SetAutoFocus(false)
+  donateBox:SetText(MT.DONATE_URL or "")
+  donateBox:SetCursorPosition(0)
+  donateBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  donateBox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  ay = ay - 28
+
+  local chatDonateBtn = CreateFrame("Button", nil, ab, "UIPanelButtonTemplate")
+  chatDonateBtn:SetSize(160, 24)
+  chatDonateBtn:SetPoint("TOPLEFT", COL1, ay)
+  chatDonateBtn:SetText("Print link in chat")
+  chatDonateBtn:SetScript("OnClick", function()
+    local url = MT.DONATE_URL or ""
+    MT:Print("Donate (optional): " .. url)
+    if ChatFrame1EditBox then
+      ChatFrame1EditBox:Show()
+      ChatFrame1EditBox:SetFocus()
+      ChatFrame1EditBox:SetText(url)
+      ChatFrame1EditBox:HighlightText()
+    end
+  end)
+  ay = ay - 36
+
+  SoftNote(ab, "Made by Add Mods.", COL1, ay, 460)
+  ay = ay - 28
+  ab:SetContentHeight(-ay + 24)
+
+  about:SetScript("OnShow", function()
+    if about.verLabel then
+      about.verLabel:SetText("Version: " .. (MT.VERSION or "?"))
+    end
+    if dlBox then dlBox:SetText(MT.DOWNLOAD_URL or "") end
+    if donateBox then donateBox:SetText(MT.DONATE_URL or "") end
+  end)
+
+  InterfaceOptions_AddCategory(about)
+  self.aboutOptionsPanel = about
 
   self:RefreshRememberList()
 end

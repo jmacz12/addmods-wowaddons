@@ -3,7 +3,7 @@
 Free Ascension WoW addon: **auto-sell junk** and **auto-repair** at merchants, with keep rules and a remembered sell list.
 
 **Download:** https://github.com/jmacz12/addmods-wowaddons/releases  
-**Donate:** https://donate.stripe.com/9B628t7JXekf4B8gRu6c000
+**Donate:** https://donate.stripe.com/4gM5kF0hv5NJ1oW1WA6c001
 
 ## Install (Ascension)
 
@@ -23,4 +23,4 @@ Free Ascension WoW addon: **auto-sell junk** and **auto-repair** at merchants, w
 ## Notes
 
 - In-game title is **AutoSeller & Repair**; folder name stays `AutoSeller`
-- Slash: `/autoseller` · `/mtas` · `/ams`
+- Slash: `/autoseller` · `/ams`
