@@ -1,14 +1,14 @@
 --[[
-  MacTechDebug — shared in-game error capture + export for control.mactech
-  Works offline in Ascension (no HTTP from Lua). Users can export reports.
+  Debug export for AutoSeller → Mission Control /wow/submit
+  Works offline in Ascension (no HTTP from Lua). Internal API name kept stable.
 ]]
 
-local ADDON = ...
 MacTechDebug = MacTechDebug or {}
 
 local MAX_ERRORS = 50
 local errors = {}
 local listeners = {}
+local TAG = "|cff55ff55[AutoSeller Debug]|r"
 
 local function now()
   return date("%Y-%m-%d %H:%M:%S")
@@ -21,7 +21,7 @@ local function truncate(s, n)
 end
 
 function MacTechDebug:Register(addonName, version)
-  self.addonName = addonName or "MacTech"
+  self.addonName = addonName or "AutoSeller"
   self.version = version or "0.0.0"
   self.client = GetBuildInfo and select(1, GetBuildInfo()) or "unknown"
 end
@@ -48,7 +48,7 @@ function MacTechDebug:Capture(message, stack, context)
   for _, cb in ipairs(listeners) do
     pcall(cb, entry)
   end
-  DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[MacTech Debug]|r " .. truncate(entry.message, 200))
+  DEFAULT_CHAT_FRAME:AddMessage(TAG .. " " .. truncate(entry.message, 200))
   return entry
 end
 
@@ -104,13 +104,13 @@ if seterrorhandler then
   end)
 end
 
-SLASH_MACTECHDEBUG1 = "/mtdb"
-SLASH_MACTECHDEBUG2 = "/mactechdebug"
-SlashCmdList.MACTECHDEBUG = function(msg)
+SLASH_ADDMODSDEBUG1 = "/mtdb"
+SLASH_ADDMODSDEBUG2 = "/amsdebug"
+SlashCmdList.ADDMODSDEBUG = function(msg)
   msg = strtrim(string.lower(msg or ""))
   if msg == "clear" then
     MacTechDebug:Clear()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[MacTech Debug]|r Cleared.")
+    DEFAULT_CHAT_FRAME:AddMessage(TAG .. " Cleared.")
     return
   end
   if msg == "export" then
@@ -118,12 +118,12 @@ SlashCmdList.MACTECHDEBUG = function(msg)
     if MacTechAutoSellerDB then
       MacTechAutoSellerDB.lastDebugExport = payload
     end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[MacTech Debug]|r Export saved. Paste it at control.mactech.app/wow/submit")
+    DEFAULT_CHAT_FRAME:AddMessage(TAG .. " Export saved. Paste it at control.mactech.app/wow/submit")
     DEFAULT_CHAT_FRAME:AddMessage(truncate(payload, 240))
     return
   end
   local list = MacTechDebug:GetErrors()
-  DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff55ff55[MacTech Debug]|r %d error(s). Commands: /mtdb  /mtdb export  /mtdb clear", #list))
+  DEFAULT_CHAT_FRAME:AddMessage(string.format("%s %d error(s). Commands: /mtdb  /mtdb export  /mtdb clear", TAG, #list))
   for i = 1, math.min(5, #list) do
     DEFAULT_CHAT_FRAME:AddMessage(string.format("  %d) %s", i, truncate(list[i].message, 160)))
   end

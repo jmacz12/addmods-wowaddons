@@ -1,12 +1,14 @@
 MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
-MT.ADDON_NAME = "MacTech AutoSeller"
-MT.VERSION = "0.1.0"
+MT.ADDON_NAME = "AutoSeller"
+MT.VERSION = "0.2.0"
+MT.CHAT_TAG = "|cff55ccffAutoSeller|r"
 
 local defaults = {
   enabled = true,
   optInLearning = false,
+  learnOnSell = true, -- remember non-gray items you sell at a merchant
   keep = {
     resources = true,
     highEnd = true,
@@ -25,8 +27,9 @@ local defaults = {
   },
   minQualityKeep = 3, -- Rare+ kept when highEnd is on (0=poor..5=legendary)
   sellGray = true,
+  rememberedSell = {}, -- [itemId] = true
   lastDebugExport = nil,
-  learningEvents = {}, -- local buffer; export later for control.mactech
+  learningEvents = {}, -- local buffer; export later for Mission Control
 }
 
 local function DeepCopy(src)
@@ -36,6 +39,10 @@ local function DeepCopy(src)
     t[k] = DeepCopy(v)
   end
   return t
+end
+
+function MT:Print(msg)
+  DEFAULT_CHAT_FRAME:AddMessage(MT.CHAT_TAG .. " " .. tostring(msg or ""))
 end
 
 function MT:InitDB()
@@ -53,6 +60,9 @@ function MT:InitDB()
     if type(MacTechAutoSellerDB.keep.byStats) ~= "table" then
       MacTechAutoSellerDB.keep.byStats = DeepCopy(defaults.keep.byStats)
     end
+    if type(MacTechAutoSellerDB.rememberedSell) ~= "table" then
+      MacTechAutoSellerDB.rememberedSell = {}
+    end
   end
   self.db = MacTechAutoSellerDB
 end
@@ -65,11 +75,12 @@ frame:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == "MacTech_AutoSeller" then
     MacTechDebug:Register(MT.ADDON_NAME, MT.VERSION)
     MT:InitDB()
+    MT:InstallSellHook()
   elseif event == "PLAYER_LOGIN" then
     MacTechDebug:SafeCall("CreateUI", function()
       MT:CreateUI()
     end)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff55ccffMacTech AutoSeller|r loaded. /mtas for options")
+    MT:Print("loaded. /autoseller or /mtas for options")
   elseif event == "MERCHANT_SHOW" then
     if MT.db and MT.db.enabled then
       MacTechDebug:SafeCall("AutoSellOnMerchant", function()
@@ -79,11 +90,12 @@ frame:SetScript("OnEvent", function(_, event, arg1)
   end
 end)
 
-SLASH_MACTECHAS1 = "/mtas"
-SLASH_MACTECHAS2 = "/autoseller"
-SlashCmdList.MACTECHAS = function(msg)
+SLASH_ADDMODSAS1 = "/autoseller"
+SLASH_ADDMODSAS2 = "/mtas"
+SLASH_ADDMODSAS3 = "/ams"
+SlashCmdList.ADDMODSAS = function(msg)
   msg = strtrim(string.lower(msg or ""))
-  if msg == "sell" then
+  if msg == "sell" or msg == "junk" then
     MacTechDebug:SafeCall("ManualSell", function()
       MT:SellEligible()
     end)
@@ -92,6 +104,12 @@ SlashCmdList.MACTECHAS = function(msg)
   if msg == "scan" then
     MacTechDebug:SafeCall("Scan", function()
       MT:ScanInventory(true)
+    end)
+    return
+  end
+  if msg == "clear" or msg == "forget" then
+    MacTechDebug:SafeCall("ClearRemembered", function()
+      MT:ClearRememberedSell()
     end)
     return
   end

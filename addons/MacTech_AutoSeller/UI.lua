@@ -13,11 +13,17 @@ local function MakeCheck(parent, label, x, y, get, set)
   return cb
 end
 
+function MT:UpdateRememberedLabel()
+  if self.rememberedLabel then
+    self.rememberedLabel:SetText(string.format("Remembered sell items: %d", self:CountRememberedSell()))
+  end
+end
+
 function MT:CreateUI()
   if self.frame then return end
 
-  local f = CreateFrame("Frame", "MacTechAutoSellerFrame", UIParent)
-  f:SetSize(360, 420)
+  local f = CreateFrame("Frame", "AddModsAutoSellerFrame", UIParent)
+  f:SetSize(380, 480)
   f:SetPoint("CENTER")
   f:SetBackdrop({
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -34,12 +40,16 @@ function MT:CreateUI()
 
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", 0, -16)
-  title:SetText("MacTech AutoSeller")
+  title:SetText("AutoSeller")
 
   local y = -48
   MakeCheck(f, "Enable auto-sell at merchants", 24, y, function() return MT.db.enabled end, function(v) MT.db.enabled = v end)
   y = y - 28
   MakeCheck(f, "Sell gray junk", 24, y, function() return MT.db.sellGray end, function(v) MT.db.sellGray = v end)
+  y = y - 28
+  MakeCheck(f, "Remember items I sell (auto next time)", 24, y,
+    function() return MT.db.learnOnSell end,
+    function(v) MT.db.learnOnSell = v end)
   y = y - 28
   MakeCheck(f, "Keep resources / trade goods", 24, y, function() return MT.db.keep.resources end, function(v) MT.db.keep.resources = v end)
   y = y - 28
@@ -50,10 +60,10 @@ function MT:CreateUI()
 
   local statsTitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   statsTitle:SetPoint("TOPLEFT", 28, y)
-  statsTitle:SetText("Keep gear with stats:")
+  statsTitle:SetText("Keep gear with these stats:")
   y = y - 24
 
-  MakeCheck(f, "Enable stat keep rules", 24, y, function() return MT.db.keep.byStats.enabled end, function(v) MT.db.keep.byStats.enabled = v end)
+  MakeCheck(f, "Enable keep-by-stats", 24, y, function() return MT.db.keep.byStats.enabled end, function(v) MT.db.keep.byStats.enabled = v end)
   y = y - 26
 
   local stats = { "intellect", "stamina", "spirit", "agility", "strength", "haste", "crit", "hit" }
@@ -67,41 +77,59 @@ function MT:CreateUI()
     col = col + 1
     if col > 1 then col = 0; row = row + 1 end
   end
-  y = y - (math.ceil(#stats / 2) * 24) - 16
+  y = y - (math.ceil(#stats / 2) * 24) - 12
 
-  MakeCheck(f, "Opt-in learning (local buffer → control.mactech)", 24, y,
+  local rememberedLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  rememberedLabel:SetPoint("TOPLEFT", 28, y)
+  rememberedLabel:SetText("Remembered sell items: 0")
+  self.rememberedLabel = rememberedLabel
+  y = y - 28
+
+  MakeCheck(f, "Opt-in learning buffer (Mission Control export)", 24, y,
     function() return MT.db.optInLearning end,
     function(v) MT.db.optInLearning = v end)
-  y = y - 40
 
   local sellBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
   sellBtn:SetSize(100, 24)
   sellBtn:SetPoint("BOTTOMLEFT", 24, 24)
-  sellBtn:SetText("Sell now")
+  sellBtn:SetText("Sell junk")
   sellBtn:SetScript("OnClick", function()
     MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
   end)
 
   local scanBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  scanBtn:SetSize(100, 24)
-  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 8, 0)
+  scanBtn:SetSize(80, 24)
+  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 6, 0)
   scanBtn:SetText("Scan")
   scanBtn:SetScript("OnClick", function()
     MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
   end)
 
+  local clearBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  clearBtn:SetSize(90, 24)
+  clearBtn:SetPoint("LEFT", scanBtn, "RIGHT", 6, 0)
+  clearBtn:SetText("Forget all")
+  clearBtn:SetScript("OnClick", function()
+    MacTechDebug:SafeCall("UIClearRemembered", function() MT:ClearRememberedSell() end)
+  end)
+
   local debugBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  debugBtn:SetSize(100, 24)
-  debugBtn:SetPoint("LEFT", scanBtn, "RIGHT", 8, 0)
+  debugBtn:SetSize(70, 24)
+  debugBtn:SetPoint("LEFT", clearBtn, "RIGHT", 6, 0)
   debugBtn:SetText("Debug")
   debugBtn:SetScript("OnClick", function()
-    SlashCmdList.MACTECHDEBUG("export")
+    SlashCmdList.ADDMODSDEBUG("export")
   end)
 
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", -4, -4)
 
+  f:SetScript("OnShow", function()
+    MT:UpdateRememberedLabel()
+  end)
+
   self.frame = f
+  self:UpdateRememberedLabel()
 end
 
 function MT:ToggleUI()

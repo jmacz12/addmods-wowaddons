@@ -16,4 +16,4 @@ if (Test-Path $dest) {
 }
 
 Copy-Item -Recurse -Force $source $dest
-Write-Host "Installed MacTech_AutoSeller -> $dest"
+Write-Host "Installed AutoSeller (MacTech_AutoSeller folder) -> $dest"
