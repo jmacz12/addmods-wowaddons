@@ -6,6 +6,7 @@ Newest first. One line per ship.
 
 ---
 
+- 2026-07-15: **AutoSeller & Repair v0.3.9 (live)** — Fix remember-on-sell (vendor click was forgetting the item); armor-type sells (Cloth/Leather/Mail/Plate); Rules split into Keep / Selling / Repair tabs.
 - 2026-07-15: **AutoSeller & Repair v0.3.8 (live)** — UI polish: trim debug/learning from panels, clearer About/main copy, Rules spacing + confirms (Clear all / Sell now), Soulbound tooltip, OnShow sync; Repair now works even if auto-repair is off; drop `/mtas`; short login line.
 - 2026-07-15: **AutoSeller & Repair v0.3.7 (local)** — Sell priority: resources/consumables → keep-by-stats → color → remembered → weaker-than-equipped (ilvl, opt-in, green-).
 - 2026-07-15: **AutoSeller & Repair v0.3.6 (local)** — Color sells (Green/Blue/etc.) now win over Soulbound + High-end; Scan bags reports keep reasons (esp. greens held by keep-by-stats).

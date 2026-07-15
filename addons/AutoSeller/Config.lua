@@ -101,16 +101,17 @@ function MT:IsRememberedSell(link)
 end
 
 function MT:RememberSellItem(link, quality)
-  if not self.db.learnOnSell then return end
-  -- Skip qualities already covered by auto-sell toggles
+  if not self.db.learnOnSell then return false end
+  -- Gray is always covered by the Gray junk toggle — never clutter the list
   quality = quality or 0
-  if quality < 1 then return end
-  if quality == 1 and self.db.sellWhite then return end
-  if quality == 2 and self.db.sellGreen then return end
-  if quality == 3 and self.db.sellBlue then return end
-  if quality == 4 and self.db.sellEpic then return end
+  if quality < 1 then return false end
+  -- Skip qualities already covered by color auto-sell (redundant with those toggles)
+  if quality == 1 and self.db.sellWhite then return false end
+  if quality == 2 and self.db.sellGreen then return false end
+  if quality == 3 and self.db.sellBlue then return false end
+  if quality == 4 and self.db.sellEpic then return false end
   local id = self:GetItemId(link)
-  if not id then return end
+  if not id then return false end
   if type(self.db.rememberedSell) ~= "table" then
     self.db.rememberedSell = {}
   end
@@ -131,6 +132,7 @@ function MT:RememberSellItem(link, quality)
   if self.RefreshRememberList then
     self:RefreshRememberList()
   end
+  return wasNew
 end
 
 function MT:ForgetSellItem(id)
@@ -346,7 +348,35 @@ function MT:ItemIsVendorable(bag, slot, link)
   return true
 end
 
--- Sell reason after keeps: color → remembered → weaker. Returns reason or nil.
+-- Armor gear only (not trade-good Cloth/Leather mats). Keys match db.sellArmor.
+local ARMOR_SELL_SUBTYPES = {
+  Cloth = "cloth",
+  Leather = "leather",
+  Mail = "mail",
+  Plate = "plate",
+}
+
+function MT:GetArmorSellKey(itemType, itemSubType, itemEquipLoc)
+  if itemType ~= "Armor" then
+    return nil
+  end
+  -- Skip shirts / tabards
+  if itemEquipLoc == "INVTYPE_BODY" or itemEquipLoc == "INVTYPE_TABARD" then
+    return nil
+  end
+  return ARMOR_SELL_SUBTYPES[itemSubType]
+end
+
+function MT:ArmorTypeSellEnabled(itemType, itemSubType, itemEquipLoc)
+  local key = self:GetArmorSellKey(itemType, itemSubType, itemEquipLoc)
+  if not key then
+    return false
+  end
+  local t = self.db and self.db.sellArmor
+  return t and t[key] and true or false
+end
+
+-- Sell reason after keeps: color → armor type → remembered → weaker. Returns reason or nil.
 function MT:GetSellReason(bag, slot, link, quality)
   if self:ShouldKeepItem(bag, slot, link) then
     return nil
@@ -355,12 +385,12 @@ function MT:GetSellReason(bag, slot, link, quality)
     return nil
   end
   quality = quality or select(3, GetItemInfo(link)) or 0
+  local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
 
   -- 3) Color sells
   if self:QualitySellEnabled(quality) then
     if quality == 1 then
       -- Whites like junk, but never auto-sell resources (even if Keep resources is off)
-      local _, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(link)
       if self:IsResourceItem(itemType, itemSubType, itemEquipLoc) then
         return nil
       end
@@ -368,12 +398,17 @@ function MT:GetSellReason(bag, slot, link, quality)
     return "color"
   end
 
-  -- 4) Remembered list
+  -- 4) Armor type (Cloth / Leather / Mail / Plate) — keep rules already applied
+  if self:ArmorTypeSellEnabled(itemType, itemSubType, itemEquipLoc) then
+    return "armor"
+  end
+
+  -- 5) Remembered list
   if self:IsRememberedSell(link) then
     return "remembered"
   end
 
-  -- 5) Weaker than equipped (ilvl; green and below; opt-in)
+  -- 6) Weaker than equipped (ilvl; green and below; opt-in)
   if self:IsWeakerThanEquipped(link) then
     return "weaker"
   end
@@ -401,17 +436,26 @@ end
 function MT:InstallSellHook()
   if self._sellHookInstalled then return end
   self._sellHookInstalled = true
-  hooksecurefunc("UseContainerItem", function(bag, slot)
-    if not MerchantFrame or not MerchantFrame:IsShown() then return end
-    if not MT.db or not MT.db.learnOnSell then return end
-    local link = GetContainerItemLink(bag, slot)
-    if not link then return end
-    local _, _, quality = GetItemInfo(link)
-    MacTechDebug:SafeCall("LearnOnSell", function()
-      MT:RememberSellItem(link, quality or 0)
-      if MT.RefreshRememberList then
-        MT:RefreshRememberList()
+  -- hooksecurefunc runs AFTER the sell — bag slot is already empty, so link is nil.
+  -- Wrap UseContainerItem to capture the item before the vendor takes it.
+  local orig = UseContainerItem
+  UseContainerItem = function(bag, slot, onSelf)
+    local link, quality
+    if MerchantFrame and MerchantFrame:IsShown() and MT.db and MT.db.learnOnSell then
+      link = GetContainerItemLink(bag, slot)
+      if link then
+        quality = select(3, GetItemInfo(link)) or 0
       end
-    end)
-  end)
+    end
+    if onSelf ~= nil then
+      orig(bag, slot, onSelf)
+    else
+      orig(bag, slot)
+    end
+    if link then
+      MacTechDebug:SafeCall("LearnOnSell", function()
+        MT:RememberSellItem(link, quality or 0)
+      end)
+    end
+  end
 end

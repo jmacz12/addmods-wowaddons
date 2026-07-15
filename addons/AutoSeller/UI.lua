@@ -184,7 +184,7 @@ function MT:CreateUI()
   title:SetPoint("TOPLEFT", 16, -16)
   title:SetText("AutoSeller & Repair")
 
-  SoftNote(panel, "Items you've sold that stay on the auto-sell list.", 16, -40)
+  SoftNote(panel, "Items you sell that aren't already covered by color rules stay on this auto-sell list.", 16, -40)
 
   local body = MakeScrollBody(panel, -58)
   local y = -8
@@ -293,129 +293,224 @@ function MT:CreateUI()
   self.optionsPanel = panel
   self.frame = panel
 
-  -- Child: Rules (scrollable)
+  -- Child: Rules (category parent — options live on Keep / Selling / Repair)
   local rules = CreateFrame("Frame", "AutoSellerKeepOptionsPanel", UIParent)
   rules.name = "Rules"
   rules.parent = "AutoSeller & Repair"
   rules:Hide()
 
-  local rulesSync = {} -- simple option checks refreshed on OnShow
-
   local rulesTitle = rules:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   rulesTitle:SetPoint("TOPLEFT", 16, -16)
   rulesTitle:SetText("Rules")
 
-  SoftNote(rules, "Keep filters, quality sells, and auto-repair. Scroll for all options.", 16, -40)
+  SoftNote(rules, "Open the sub-pages on the left: Keep, Selling, and Repair.", 16, -40, 460)
+  SoftNote(rules, "Priority: resources/consumables → keep-by-stats → color → armor type → remembered → weaker (ilvl).", 16, -68, 460)
 
-  local rb = MakeScrollBody(rules, -58)
+  InterfaceOptions_AddCategory(rules)
+  self.keepOptionsPanel = rules
+
+  local function AddRulesChild(frameName, titleText, blurb)
+    local p = CreateFrame("Frame", frameName, UIParent)
+    p.name = titleText
+    p.parent = "Rules"
+    p:Hide()
+
+    local t = p:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    t:SetPoint("TOPLEFT", 16, -16)
+    t:SetText(titleText)
+
+    SoftNote(p, blurb, 16, -40, 460)
+
+    local body = MakeScrollBody(p, -58)
+    local sync = {}
+    p._sync = sync
+    p._body = body
+    return p, body, sync
+  end
+
+  -- Keep
+  local keepPanel, kb, keepSync = AddRulesChild(
+    "AutoSellerRulesKeepPanel",
+    "Keep",
+    "Safety filters — these win over sell rules."
+  )
+
   local ky = -8
-
-  -- Keep by stats FIRST (near top)
-  SectionHeader(rb, "Keep by stats", COL1, ky)
+  SectionHeader(kb, "Keep by stats", COL1, ky)
   ky = ky - 22
 
-  local enableStatsCb = MakeCheck(rb, "Enable keep-by-stats", COL1, ky,
+  MakeCheck(kb, "Enable keep-by-stats", COL1, ky,
     function() return MT.db.keep.byStats.enabled end,
     function(v)
       MT.db.keep.byStats.enabled = v
       MT:RefreshStatChecksEnabled()
-    end, rulesSync)
+    end, keepSync)
   ky = ky - 22
-  SoftNote(rb, "When enabled, gear with checked stats is never sold — even if Green/Blue is checked.", COL1 + 4, ky, 460)
+  SoftNote(kb, "When enabled, gear with checked stats is never sold — even if Green/Blue or armor type is on.", COL1 + 4, ky, 460)
   ky = ky - 24
 
   local stats = { "Intellect", "Stamina", "Spirit", "Agility", "Strength", "Haste", "Crit", "Hit" }
   local statKeys = { "intellect", "stamina", "spirit", "agility", "strength", "haste", "crit", "hit" }
-  rb.statChecks = {}
+  kb.statChecks = {}
   local gridTop = ky
   for i, key in ipairs(statKeys) do
     local col = ((i - 1) % 2)
     local rowN = math.floor((i - 1) / 2)
     local sx = COL1 + 8 + (col * STAT_COL_W)
     local sy = gridTop - (rowN * ROW)
-    local cb, text = MakeCheck(rb, stats[i], sx, sy,
+    local cb, text = MakeCheck(kb, stats[i], sx, sy,
       function() return MT.db.keep.byStats[key] end,
-      function(v) MT.db.keep.byStats[key] = v end, rulesSync)
-    rb.statChecks[#rb.statChecks + 1] = { cb = cb, text = text }
+      function(v) MT.db.keep.byStats[key] = v end, keepSync)
+    kb.statChecks[#kb.statChecks + 1] = { cb = cb, text = text }
   end
   ky = gridTop - (math.ceil(#statKeys / 2) * ROW) - 14
 
-  -- Keep (other)
-  SectionHeader(rb, "Keep", COL1, ky)
+  SectionHeader(kb, "Always keep", COL1, ky)
   ky = ky - 22
 
-  MakeCheck(rb, "Resources / trade goods", COL1, ky,
+  MakeCheck(kb, "Resources / trade goods", COL1, ky,
     function() return MT.db.keep.resources end,
-    function(v) MT.db.keep.resources = v end, rulesSync)
-  MakeCheck(rb, "High-end (Rare+)", COL2, ky,
+    function(v) MT.db.keep.resources = v end, keepSync)
+  MakeCheck(kb, "High-end (Rare+)", COL2, ky,
     function() return MT.db.keep.highEnd end,
-    function(v) MT.db.keep.highEnd = v end, rulesSync)
+    function(v) MT.db.keep.highEnd = v end, keepSync)
   ky = ky - ROW
 
-  MakeCheck(rb, "Consumables (potions, food, scrolls...)", COL1, ky,
+  MakeCheck(kb, "Consumables (potions, food, scrolls...)", COL1, ky,
     function() return MT.db.keep.consumables end,
-    function(v) MT.db.keep.consumables = v end, rulesSync)
+    function(v) MT.db.keep.consumables = v end, keepSync)
   ky = ky - ROW
 
-  local soulCb = MakeCheck(rb, "Soulbound (if color not selling)", COL1, ky,
+  local soulCb = MakeCheck(kb, "Soulbound (if color not selling)", COL1, ky,
     function() return MT.db.keep.soulbound end,
-    function(v) MT.db.keep.soulbound = v end, rulesSync)
+    function(v) MT.db.keep.soulbound = v end, keepSync)
   AttachTooltip(soulCb, "Soulbound", "Keeps soulbound items only when that quality color is not set to sell.")
-  ky = ky - 30
+  ky = ky - 36
+  kb:SetContentHeight(-ky + 24)
+
+  function MT:RefreshStatChecksEnabled()
+    local on = MT.db.keep.byStats.enabled and true or false
+    for _, row in ipairs(kb.statChecks or {}) do
+      SetCheckInteractive(row.cb, row.text, on)
+    end
+  end
 
   -- Selling
-  SectionHeader(rb, "Selling", COL1, ky)
-  ky = ky - 22
+  local sellPanel, sb, sellSync = AddRulesChild(
+    "AutoSellerRulesSellPanel",
+    "Selling",
+    "What to auto-sell at merchants. Keep rules always win."
+  )
 
-  MakeCheck(rb, "Enable auto-sell at merchants", COL1, ky,
+  local sy = -8
+  SectionHeader(sb, "Auto-sell", COL1, sy)
+  sy = sy - 22
+
+  MakeCheck(sb, "Enable auto-sell at merchants", COL1, sy,
     function() return MT.db.enabled end,
-    function(v) MT.db.enabled = v end, rulesSync)
-  ky = ky - ROW
+    function(v) MT.db.enabled = v end, sellSync)
+  sy = sy - 28
 
-  MakeCheck(rb, "Gray junk", COL1, ky,
+  SectionHeader(sb, "By quality", COL1, sy)
+  sy = sy - 22
+
+  MakeCheck(sb, "Gray junk", COL1, sy,
     function() return MT.db.sellGray end,
-    function(v) MT.db.sellGray = v end, rulesSync)
-  MakeCheck(rb, "White (not resources)", COL2, ky,
+    function(v) MT.db.sellGray = v end, sellSync)
+  MakeCheck(sb, "White (not resources)", COL2, sy,
     function() return MT.db.sellWhite end,
-    function(v) MT.db.sellWhite = v end, rulesSync)
-  ky = ky - ROW
+    function(v) MT.db.sellWhite = v end, sellSync)
+  sy = sy - ROW
 
-  MakeCheck(rb, "Green", COL1, ky,
+  MakeCheck(sb, "Green", COL1, sy,
     function() return MT.db.sellGreen end,
-    function(v) MT.db.sellGreen = v end, rulesSync)
-  MakeCheck(rb, "Blue", COL2, ky,
+    function(v) MT.db.sellGreen = v end, sellSync)
+  MakeCheck(sb, "Blue", COL2, sy,
     function() return MT.db.sellBlue end,
-    function(v) MT.db.sellBlue = v end, rulesSync)
-  MakeCheck(rb, "Purple", COL3, ky,
+    function(v) MT.db.sellBlue = v end, sellSync)
+  MakeCheck(sb, "Purple", COL3, sy,
     function() return MT.db.sellEpic end,
-    function(v) MT.db.sellEpic = v end, rulesSync)
-  ky = ky - ROW
+    function(v) MT.db.sellEpic = v end, sellSync)
+  sy = sy - 28
 
-  MakeCheck(rb, "Sell weaker than equipped (ilvl, green and below)", COL1, ky,
+  SectionHeader(sb, "By armor type", COL1, sy)
+  sy = sy - 22
+  SoftNote(sb, "Armor gear only (not cloth/leather crafting mats). Keep rules still apply.", COL1 + 4, sy, 460)
+  sy = sy - 22
+
+  MakeCheck(sb, "Cloth", COL1, sy,
+    function() return MT.db.sellArmor.cloth end,
+    function(v) MT.db.sellArmor.cloth = v end, sellSync)
+  MakeCheck(sb, "Leather", COL2, sy,
+    function() return MT.db.sellArmor.leather end,
+    function(v) MT.db.sellArmor.leather = v end, sellSync)
+  sy = sy - ROW
+
+  MakeCheck(sb, "Mail", COL1, sy,
+    function() return MT.db.sellArmor.mail end,
+    function(v) MT.db.sellArmor.mail = v end, sellSync)
+  MakeCheck(sb, "Plate", COL2, sy,
+    function() return MT.db.sellArmor.plate end,
+    function(v) MT.db.sellArmor.plate = v end, sellSync)
+  sy = sy - 28
+
+  SectionHeader(sb, "Other", COL1, sy)
+  sy = sy - 22
+
+  MakeCheck(sb, "Sell weaker than equipped (ilvl, green and below)", COL1, sy,
     function() return MT.db.sellWeakerThanEquipped end,
-    function(v) MT.db.sellWeakerThanEquipped = v end, rulesSync)
-  ky = ky - 22
-  SoftNote(rb, "Priority: resources/consumables → keep-by-stats → color → remembered → weaker (ilvl). Weaker never sells blue/purple.", COL1 + 4, ky, 460)
-  ky = ky - 34
+    function(v) MT.db.sellWeakerThanEquipped = v end, sellSync)
+  sy = sy - 22
+  SoftNote(sb, "Weaker never sells blue/purple. Color and armor rules run first.", COL1 + 4, sy, 460)
+  sy = sy - 34
 
-  -- Auto-repair
-  SectionHeader(rb, "Auto-repair", COL1, ky)
-  ky = ky - 22
+  local sellBtn = CreateFrame("Button", nil, sb, "UIPanelButtonTemplate")
+  sellBtn:SetSize(100, 24)
+  sellBtn:SetPoint("TOPLEFT", COL1, sy)
+  sellBtn:SetText("Sell now")
+  sellBtn:SetScript("OnClick", function()
+    if not MerchantFrame or not MerchantFrame:IsShown() then
+      MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
+      return
+    end
+    StaticPopup_Show("AUTOSELLER_SELL_NOW")
+  end)
 
-  local repairCb = MakeCheck(rb, "Repair gear when talking to a vendor", COL1, ky,
+  local scanBtn = CreateFrame("Button", nil, sb, "UIPanelButtonTemplate")
+  scanBtn:SetSize(100, 24)
+  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 8, 0)
+  scanBtn:SetText("Scan bags")
+  scanBtn:SetScript("OnClick", function()
+    MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
+  end)
+  sy = sy - 36
+  sb:SetContentHeight(-sy + 24)
+
+  -- Repair
+  local repairPanel, rb, repairSync = AddRulesChild(
+    "AutoSellerRulesRepairPanel",
+    "Repair",
+    "Auto-repair when you talk to a repair vendor."
+  )
+
+  local ry = -8
+  SectionHeader(rb, "Auto-repair", COL1, ry)
+  ry = ry - 22
+
+  MakeCheck(rb, "Repair gear when talking to a vendor", COL1, ry,
     function() return MT.db.autoRepair end,
     function(v)
       MT.db.autoRepair = v
       MT:RefreshRepairPayEnabled()
-    end, rulesSync)
-  ky = ky - 22
-  SoftNote(rb, "Runs at repair vendors. Chat shows cost and who paid.", COL1 + 4, ky)
-  ky = ky - 22
+    end, repairSync)
+  ry = ry - 22
+  SoftNote(rb, "Runs at repair vendors. Chat shows cost and who paid.", COL1 + 4, ry)
+  ry = ry - 22
 
   local payLabel = rb:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  payLabel:SetPoint("TOPLEFT", COL1 + 4, ky)
+  payLabel:SetPoint("TOPLEFT", COL1 + 4, ry)
   payLabel:SetText("Pay with:")
-  ky = ky - 22
+  ry = ry - 22
 
   local payChecks = {}
   local function SetRepairPay(mode)
@@ -434,12 +529,10 @@ function MT:CreateUI()
     payChecks[key] = { cb = cb, text = text }
   end
 
-  MakePayCheck("personal", "My gold", COL1 + 8, ky)
-  MakePayCheck("guild", "Guild bank", COL2, ky)
-  ky = ky - ROW
-  MakePayCheck("guild_first", "Guild first, then my gold", COL1 + 8, ky)
-  rules.repairPayChecks = payChecks
-  rules.repairPayLabel = payLabel
+  MakePayCheck("personal", "My gold", COL1 + 8, ry)
+  MakePayCheck("guild", "Guild bank", COL2, ry)
+  ry = ry - ROW
+  MakePayCheck("guild_first", "Guild first, then my gold", COL1 + 8, ry)
 
   function MT:RefreshRepairPayEnabled()
     local on = MT.db.autoRepair and true or false
@@ -453,64 +546,42 @@ function MT:CreateUI()
     end
   end
 
-  ky = ky - 28
-
-  -- Actions: two rows, no debug button (use /amsdebug)
-  local sellBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
-  sellBtn:SetSize(100, 24)
-  sellBtn:SetPoint("TOPLEFT", COL1, ky)
-  sellBtn:SetText("Sell now")
-  sellBtn:SetScript("OnClick", function()
-    if not MerchantFrame or not MerchantFrame:IsShown() then
-      MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
-      return
-    end
-    StaticPopup_Show("AUTOSELLER_SELL_NOW")
-  end)
-
-  local scanBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
-  scanBtn:SetSize(100, 24)
-  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 8, 0)
-  scanBtn:SetText("Scan bags")
-  scanBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
-  end)
-
-  ky = ky - 30
+  ry = ry - 32
   local repairNowBtn = CreateFrame("Button", nil, rb, "UIPanelButtonTemplate")
   repairNowBtn:SetSize(100, 24)
-  repairNowBtn:SetPoint("TOPLEFT", COL1, ky)
+  repairNowBtn:SetPoint("TOPLEFT", COL1, ry)
   repairNowBtn:SetText("Repair now")
   repairNowBtn:SetScript("OnClick", function()
     MacTechDebug:SafeCall("UIRepair", function() MT:TryAutoRepair(true) end)
   end)
-
-  ky = ky - 36
-  rb:SetContentHeight(-ky + 24)
-
-  function MT:RefreshStatChecksEnabled()
-    local on = MT.db.keep.byStats.enabled and true or false
-    for _, row in ipairs(rb.statChecks or {}) do
-      SetCheckInteractive(row.cb, row.text, on)
-    end
-  end
+  ry = ry - 36
+  rb:SetContentHeight(-ry + 24)
 
   function MT:RefreshRulesChecks()
-    for _, row in ipairs(rulesSync) do
-      if row.cb and row.get then
-        row.cb:SetChecked(row.get() and true or false)
+    for _, panel in ipairs({ keepPanel, sellPanel, repairPanel }) do
+      for _, row in ipairs(panel._sync or {}) do
+        if row.cb and row.get then
+          row.cb:SetChecked(row.get() and true or false)
+        end
       end
     end
     MT:RefreshStatChecksEnabled()
     MT:RefreshRepairPayEnabled()
   end
 
-  rules:SetScript("OnShow", function()
+  local function OnRulesChildShow()
     MT:RefreshRulesChecks()
-  end)
+  end
+  keepPanel:SetScript("OnShow", OnRulesChildShow)
+  sellPanel:SetScript("OnShow", OnRulesChildShow)
+  repairPanel:SetScript("OnShow", OnRulesChildShow)
 
-  InterfaceOptions_AddCategory(rules)
-  self.keepOptionsPanel = rules
+  InterfaceOptions_AddCategory(keepPanel)
+  InterfaceOptions_AddCategory(sellPanel)
+  InterfaceOptions_AddCategory(repairPanel)
+  self.rulesKeepPanel = keepPanel
+  self.rulesSellPanel = sellPanel
+  self.rulesRepairPanel = repairPanel
   self:RefreshStatChecksEnabled()
   self:RefreshRepairPayEnabled()
 
@@ -540,7 +611,7 @@ function MT:CreateUI()
 
   SectionHeader(ab, "How to use", COL1, ay)
   ay = ay - 22
-  SoftNote(ab, "1. Talk to a merchant — eligible junk sells and gear can auto-repair.\n2. Rules sets keep filters, quality sells, and repair.\n3. /autoseller opens options · /autoseller sell|scan for manual actions.", COL1, ay, 460)
+  SoftNote(ab, "1. Talk to a merchant — eligible junk sells and gear can auto-repair.\n2. Rules → Keep / Selling / Repair for filters, armor types, and repair.\n3. /autoseller opens options · /autoseller sell|scan for manual actions.", COL1, ay, 460)
   ay = ay - 58
 
   SectionHeader(ab, "Download", COL1, ay)

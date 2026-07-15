@@ -2,7 +2,7 @@ MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
 MT.ADDON_NAME = "AutoSeller & Repair"
-MT.VERSION = "0.3.8"
+MT.VERSION = "0.3.9"
 MT.CHAT_TAG = "|cff55ccffAutoSeller & Repair|r"
 MT.DONATE_URL = "https://donate.stripe.com/4gM5kF0hv5NJ1oW1WA6c001"
 MT.DOWNLOAD_URL = "https://github.com/jmacz12/addmods-wowaddons/releases"
@@ -34,6 +34,12 @@ local defaults = {
   sellGreen = false, -- uncommon
   sellBlue = false, -- rare; High-end keep only applies when Blue is not set to sell
   sellEpic = false, -- purple
+  sellArmor = { -- opt-in: sell Armor gear by type (keep rules still win)
+    cloth = false,
+    leather = false,
+    mail = false,
+    plate = false,
+  },
   sellWeakerThanEquipped = false, -- opt-in: sell green-and-below gear with lower ilvl than equipped
   autoRepair = true, -- repair gear when opening a merchant that can repair
   repairPay = "personal", -- personal | guild | guild_first
@@ -75,6 +81,15 @@ function MT:InitDB()
     end
     if type(MacTechAutoSellerDB.rememberedSell) ~= "table" then
       MacTechAutoSellerDB.rememberedSell = {}
+    end
+    if type(MacTechAutoSellerDB.sellArmor) ~= "table" then
+      MacTechAutoSellerDB.sellArmor = DeepCopy(defaults.sellArmor)
+    else
+      for ak, av in pairs(defaults.sellArmor) do
+        if MacTechAutoSellerDB.sellArmor[ak] == nil then
+          MacTechAutoSellerDB.sellArmor[ak] = av
+        end
+      end
     end
   end
   self.db = MacTechAutoSellerDB

@@ -88,7 +88,7 @@ function MT:ScanInventory(printSummary)
   local gray, remembered = 0, 0
   local keepReasons, sellReasons = {}, {}
   local greenKept, greenSell = 0, 0
-  local statsHeld, weakerSell = 0, 0
+  local statsHeld, weakerSell, armorSell = 0, 0, 0
 
   for bag = 0, 4 do
     local slots = GetContainerNumSlots(bag)
@@ -124,6 +124,9 @@ function MT:ScanInventory(printSummary)
             if sellReason == "weaker" then
               weakerSell = weakerSell + 1
             end
+            if sellReason == "armor" then
+              armorSell = armorSell + 1
+            end
             if quality == 2 then
               greenSell = greenSell + 1
             end
@@ -141,8 +144,14 @@ function MT:ScanInventory(printSummary)
       "scan: %d keep, %d sell (%d gray, %d remembered)",
       #kept, #sellable, gray, remembered
     ))
-    if statsHeld > 0 or weakerSell > 0 or self.db.sellWeakerThanEquipped then
-      self:Print(string.format("priority: keep-by-stats=%d held, weaker=%d will sell", statsHeld, weakerSell))
+    if statsHeld > 0 or weakerSell > 0 or armorSell > 0
+        or self.db.sellWeakerThanEquipped
+        or (self.db.sellArmor and (self.db.sellArmor.cloth or self.db.sellArmor.leather
+            or self.db.sellArmor.mail or self.db.sellArmor.plate)) then
+      self:Print(string.format(
+        "priority: keep-by-stats=%d held, armor=%d / weaker=%d will sell",
+        statsHeld, armorSell, weakerSell
+      ))
     end
     if self.db.sellGreen then
       self:Print(string.format("green: %d will sell, %d held back", greenSell, greenKept))
@@ -175,15 +184,27 @@ function MT:SellEligible()
 
   local sellable = self:ScanInventory(false)
   local sold = 0
+  local countBefore = self:CountRememberedSell()
   for _, item in ipairs(sellable) do
     local ok = pcall(UseContainerItem, item.bag, item.slot)
     if ok then
       sold = sold + 1
-      self:RememberSellItem(item.link, item.quality)
+      -- UseContainerItem wrapper remembers from the pre-sell link
       self:RecordLearning("sold", { q = item.quality, id = self:GetItemId(item.link) })
     end
   end
-  self:Print(string.format("Sold %d item(s). Remembered list: %d.", sold, self:CountRememberedSell()))
+  local newlyRemembered = math.max(0, self:CountRememberedSell() - countBefore)
+  if newlyRemembered > 0 then
+    self:Print(string.format(
+      "Sold %d item(s). Added %d to remembered list (%d total).",
+      sold, newlyRemembered, self:CountRememberedSell()
+    ))
+  else
+    self:Print(string.format(
+      "Sold %d item(s). Remembered list: %d (non-gray items not already covered by color rules get added).",
+      sold, self:CountRememberedSell()
+    ))
+  end
   if self.RefreshRememberList then
     self:RefreshRememberList()
   end
