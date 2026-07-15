@@ -106,15 +106,15 @@ function MT:CreateUI()
 
   -- Main: remembered list
   local panel = CreateFrame("Frame", "AutoSellerOptionsPanel", UIParent)
-  panel.name = "AutoSeller"
+  panel.name = "AutoSeller & Repair"
   panel.rememberPage = 1
   panel:Hide()
 
   local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("AutoSeller")
+  title:SetText("AutoSeller & Repair")
 
-  SoftNote(panel, "Remembered sell list. Sell & keep rules are on the Rules page.", 16, -40)
+  SoftNote(panel, "Remembered sell list. Rules page: what to sell, keep, and auto-repair at merchants.", 16, -40)
 
   local y = -68
 
@@ -221,7 +221,7 @@ function MT:CreateUI()
   end)
 
   y = y - 36
-  SoftNote(panel, "Tip: open Rules (under AutoSeller) to choose what sells and what is kept.", 16, y)
+  SoftNote(panel, "Tip: open Rules (under AutoSeller & Repair) to choose what sells, what is kept, and auto-repair.", 16, y)
 
   panel:SetScript("OnShow", function()
     MT:RefreshRememberList()
@@ -234,14 +234,14 @@ function MT:CreateUI()
   -- Child: Sell & Keep (Rules)
   local rules = CreateFrame("Frame", "AutoSellerKeepOptionsPanel", UIParent)
   rules.name = "Rules"
-  rules.parent = "AutoSeller"
+  rules.parent = "AutoSeller & Repair"
   rules:Hide()
 
   local rulesTitle = rules:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   rulesTitle:SetPoint("TOPLEFT", 16, -16)
   rulesTitle:SetText("Rules")
 
-  SoftNote(rules, "Choose what AutoSeller sells at merchants, and what it never sells.", 16, -40)
+  SoftNote(rules, "At merchants: sell junk by your rules, keep what you mark, and optionally auto-repair.", 16, -40)
 
   local ky = -68
 
@@ -274,7 +274,70 @@ function MT:CreateUI()
   ky = ky - 22
 
   SoftNote(rules, "Colored sells still respect Keep rules below (high-end, soulbound, stats).", 20, ky)
-  ky = ky - 26
+  ky = ky - 28
+
+  -- Repair
+  SectionHeader(rules, "Auto-repair", 16, ky)
+  ky = ky - 24
+
+  local repairCb = MakeCheck(rules, "Repair gear when talking to a vendor", 16, ky,
+    function() return MT.db.autoRepair end,
+    function(v)
+      MT.db.autoRepair = v
+      MT:RefreshRepairPayEnabled()
+    end)
+  ky = ky - 22
+  SoftNote(rules, "Runs automatically at repair vendors. Chat will say the cost and who paid.", 20, ky)
+  ky = ky - 24
+
+  local payLabel = rules:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  payLabel:SetPoint("TOPLEFT", 20, ky)
+  payLabel:SetText("Pay with:")
+  ky = ky - 22
+
+  local payChecks = {}
+
+  local function SetRepairPay(mode)
+    MT.db.repairPay = mode
+    for key, row in pairs(payChecks) do
+      row.cb:SetChecked(key == mode)
+    end
+  end
+
+  local function MakePayCheck(key, label, x, y)
+    local cb, text = MakeCheck(rules, label, x, y,
+      function() return (MT.db.repairPay or "personal") == key end,
+      function() end)
+    cb:SetScript("OnClick", function()
+      SetRepairPay(key)
+    end)
+    payChecks[key] = { cb = cb, text = text }
+  end
+
+  MakePayCheck("personal", "My gold", 24, ky)
+  MakePayCheck("guild", "Guild bank", 140, ky)
+  ky = ky - 24
+  MakePayCheck("guild_first", "Guild first, then my gold", 24, ky)
+  rules.repairPayChecks = payChecks
+  rules.repairPayLabel = payLabel
+
+  function MT:RefreshRepairPayEnabled()
+    local on = MT.db.autoRepair and true or false
+    if payLabel then
+      if on then
+        payLabel:SetTextColor(1, 1, 1)
+      else
+        payLabel:SetTextColor(0.5, 0.5, 0.5)
+      end
+    end
+    local mode = MT.db.repairPay or "personal"
+    for key, row in pairs(payChecks) do
+      SetCheckInteractive(row.cb, row.text, on)
+      row.cb:SetChecked(key == mode)
+    end
+  end
+
+  ky = ky - 30
 
   local sellBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
   sellBtn:SetSize(100, 24)
@@ -292,9 +355,17 @@ function MT:CreateUI()
     MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
   end)
 
+  local repairNowBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
+  repairNowBtn:SetSize(90, 24)
+  repairNowBtn:SetPoint("LEFT", scanBtn, "RIGHT", 8, 0)
+  repairNowBtn:SetText("Repair now")
+  repairNowBtn:SetScript("OnClick", function()
+    MacTechDebug:SafeCall("UIRepair", function() MT:TryAutoRepair() end)
+  end)
+
   local debugBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
   debugBtn:SetSize(110, 24)
-  debugBtn:SetPoint("LEFT", scanBtn, "RIGHT", 8, 0)
+  debugBtn:SetPoint("LEFT", repairNowBtn, "RIGHT", 8, 0)
   debugBtn:SetText("Debug export")
   debugBtn:SetScript("OnClick", function()
     SlashCmdList.ADDMODSDEBUG("export")
@@ -312,6 +383,11 @@ function MT:CreateUI()
   MakeCheck(rules, "High-end (Rare+)", 220, ky,
     function() return MT.db.keep.highEnd end,
     function(v) MT.db.keep.highEnd = v end)
+  ky = ky - 26
+
+  MakeCheck(rules, "Consumables (potions, food, scrolls...)", 16, ky,
+    function() return MT.db.keep.consumables end,
+    function(v) MT.db.keep.consumables = v end)
   ky = ky - 26
 
   MakeCheck(rules, "Soulbound", 16, ky,
@@ -356,55 +432,17 @@ function MT:CreateUI()
 
   rules:SetScript("OnShow", function()
     enableStatsCb:SetChecked(MT.db.keep.byStats.enabled)
+    repairCb:SetChecked(MT.db.autoRepair)
     MT:RefreshStatChecksEnabled()
+    MT:RefreshRepairPayEnabled()
   end)
 
   InterfaceOptions_AddCategory(rules)
   self.keepOptionsPanel = rules
   self:RefreshStatChecksEnabled()
+  self:RefreshRepairPayEnabled()
 
-  self:CreateBagButton()
   self:RefreshRememberList()
-end
-
-function MT:CreateBagButton()
-  if self.bagButton then return end
-  local parent = MainMenuBarBackpackButton
-  if not parent then return end
-
-  local btn = CreateFrame("Button", "AutoSellerBagButton", parent)
-  btn:SetSize(28, 28)
-  btn:SetPoint("RIGHT", parent, "LEFT", -6, 0)
-  btn:SetFrameStrata(parent:GetFrameStrata())
-  btn:SetFrameLevel((parent:GetFrameLevel() or 0) + 5)
-
-  local tex = "Interface\\Icons\\INV_Misc_Coin_01"
-  btn:SetNormalTexture(tex)
-  btn:SetPushedTexture(tex)
-  btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-  local nt = btn:GetNormalTexture()
-  if nt then nt:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
-
-  btn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("AutoSeller")
-    if MerchantFrame and MerchantFrame:IsShown() then
-      GameTooltip:AddLine("Click: sell now", 0.8, 0.8, 0.8)
-    else
-      GameTooltip:AddLine("Click: open settings", 0.8, 0.8, 0.8)
-    end
-    GameTooltip:Show()
-  end)
-  btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  btn:SetScript("OnClick", function()
-    if MerchantFrame and MerchantFrame:IsShown() then
-      MacTechDebug:SafeCall("BagSell", function() MT:SellEligible() end)
-    else
-      MT:OpenSettings()
-    end
-  end)
-
-  self.bagButton = btn
 end
 
 function MT:OpenSettings()

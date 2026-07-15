@@ -40,7 +40,7 @@ export default function DebugPage() {
       <textarea
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        placeholder='{"addon":"MacTech AutoSeller","errors":[...]}'
+        placeholder='{"addon":"AutoSeller & Repair","errors":[...]}'
         className="mt-8 h-72 w-full rounded-2xl border border-[var(--line)] bg-white/80 p-4 font-[family-name:var(--font-mono)] text-sm outline-none focus:border-[var(--accent)]"
       />
       <button

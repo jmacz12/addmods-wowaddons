@@ -14,15 +14,15 @@ Ascension-first World of Warcraft addons. Public brand: **Add Mods** (not MacTec
 
 | Path | Purpose |
 |------|---------|
-| `addons/AutoSeller` | AutoSeller — junk sell, remember list, keep-by-stats, Interface options |
+| `addons/AutoSeller` | AutoSeller & Repair — sell, remember, keep rules, auto-repair |
 | `apps/control` | Legacy mini-site (superseded by Mission Control `/wow`) |
 | `scripts/` | Install into Ascension + pack zip |
 
-## Install AutoSeller (Ascension 1.0.102)
+## Install AutoSeller & Repair (Ascension 1.0.102)
 
-1. Copy `addons/AutoSeller` into Ascension `Interface\AddOns\`
+1. Copy `addons/AutoSeller` into Ascension `Interface\AddOns\` (folder name stays `AutoSeller`)
 2. Or: `powershell -File scripts/install-to-ascension.ps1 -AscensionPath "D:\Path\To\Ascension"`
-3. In game: Interface → AddOns → AutoSeller (list) · Rules (sell & keep) · bag coin button · `/autoseller` · `/mtdb export` → paste at https://control.mactech.app/wow/submit
+3. In game: Interface → AddOns → **AutoSeller & Repair** · Rules · `/autoseller` · `/mtdb export` → paste at https://control.mactech.app/wow/submit
 
 ## Mission Control
 

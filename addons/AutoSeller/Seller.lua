@@ -1,5 +1,86 @@
 local MT = MacTechAutoSeller
 
+function MT:FormatCopper(copper)
+  copper = math.max(0, tonumber(copper) or 0)
+  local g = math.floor(copper / 10000)
+  local s = math.floor((copper % 10000) / 100)
+  local c = copper % 100
+  if g > 0 then
+    return string.format("%dg %ds %dc", g, s, c)
+  end
+  if s > 0 then
+    return string.format("%ds %dc", s, c)
+  end
+  return string.format("%dc", c)
+end
+
+function MT:CanUseGuildRepair(cost)
+  if not CanGuildBankRepair or not CanGuildBankRepair() then
+    return false
+  end
+  if GetGuildBankWithdrawMoney then
+    local withdraw = GetGuildBankWithdrawMoney()
+    -- -1 = unlimited
+    if withdraw ~= -1 and cost and withdraw < cost then
+      return false
+    end
+  end
+  return true
+end
+
+function MT:TryAutoRepair()
+  if not self.db or not self.db.autoRepair then return end
+  if not MerchantFrame or not MerchantFrame:IsShown() then return end
+  if not CanMerchantRepair or not CanMerchantRepair() then return end
+
+  local cost, needsRepair = GetRepairAllCost()
+  if not needsRepair or not cost or cost <= 0 then return end
+
+  local mode = self.db.repairPay or "personal"
+  local usedGuild = false
+  local ok = false
+
+  if mode == "guild" then
+    if self:CanUseGuildRepair(cost) then
+      RepairAllItems(1)
+      usedGuild = true
+      ok = true
+    else
+      self:Print("Auto-repair skipped: guild bank unavailable or not enough guild funds.")
+      return
+    end
+  elseif mode == "guild_first" then
+    if self:CanUseGuildRepair(cost) then
+      RepairAllItems(1)
+      usedGuild = true
+      ok = true
+    elseif GetMoney() >= cost then
+      RepairAllItems()
+      ok = true
+    else
+      self:Print("Auto-repair skipped: not enough guild or personal gold.")
+      return
+    end
+  else
+    -- personal (character gold / "inventory")
+    if GetMoney() >= cost then
+      RepairAllItems()
+      ok = true
+    else
+      self:Print("Auto-repair skipped: not enough gold.")
+      return
+    end
+  end
+
+  if ok then
+    self:Print(string.format(
+      "Auto-repaired for %s (%s).",
+      self:FormatCopper(cost),
+      usedGuild and "guild bank" or "your gold"
+    ))
+  end
+end
+
 function MT:ScanInventory(printSummary)
   local sellable, kept, gray, remembered = {}, {}, 0, 0
   for bag = 0, 4 do

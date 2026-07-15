@@ -53,15 +53,21 @@ function MT:IsResourceItem(itemType, itemSubType, itemEquipLoc)
   if itemEquipLoc and itemEquipLoc ~= "" then
     return false
   end
-  if itemType == "Trade Goods" or itemType == "Reagent" or itemType == "Consumable" then
+  -- Trade Goods / Reagent only — consumables have their own keep toggle
+  if itemType == "Trade Goods" or itemType == "Reagent" then
     if itemSubType and RESOURCE_SUBTYPES[itemSubType] then
       return true
     end
-    if itemType == "Trade Goods" or itemType == "Reagent" then
-      return true
-    end
+    return true
   end
   return false
+end
+
+function MT:IsConsumableItem(itemType, itemEquipLoc)
+  if itemEquipLoc and itemEquipLoc ~= "" then
+    return false
+  end
+  return itemType == "Consumable"
 end
 
 function MT:ItemHasKeptStat(bag, slot)
@@ -206,6 +212,10 @@ function MT:ShouldKeepItem(bag, slot, link)
     return true
   end
 
+  if db.keep.consumables and self:IsConsumableItem(itemType, itemEquipLoc) then
+    return true
+  end
+
   if self:ItemHasKeptStat(bag, slot) then
     return true
   end
@@ -213,8 +223,32 @@ function MT:ShouldKeepItem(bag, slot, link)
   return false
 end
 
+function MT:ItemIsVendorable(bag, slot, link)
+  if not link then return false end
+  -- 3.3+/Ascension: vendor price is the 11th GetItemInfo return (copper). 0 = cannot sell.
+  local sellPrice = select(11, GetItemInfo(link))
+  if type(sellPrice) == "number" then
+    return sellPrice > 0
+  end
+  -- Tooltip fallback when the client omits price
+  local lines = self:GetTooltipLines(bag, slot)
+  for _, line in ipairs(lines) do
+    local lower = string.lower(line)
+    if lower:find("no sell price", 1, true)
+        or lower:find("cannot be sold", 1, true)
+        or lower:find("vendor will not buy", 1, true) then
+      return false
+    end
+  end
+  -- Unknown: allow quality/remember rules (don't block everything if API has no price field)
+  return true
+end
+
 function MT:ShouldSellItem(bag, slot, link, quality)
   if self:ShouldKeepItem(bag, slot, link) then
+    return false
+  end
+  if not self:ItemIsVendorable(bag, slot, link) then
     return false
   end
   quality = quality or 0

@@ -6,12 +6,12 @@ export default function DownloadPage() {
       <Link href="/" className="text-sm text-[var(--accent)]">
         ← MacTech Control
       </Link>
-      <h1 className="mt-6 text-4xl font-semibold">Install MacTech AutoSeller</h1>
+      <h1 className="mt-6 text-4xl font-semibold">Install AutoSeller & Repair</h1>
       <ol className="mt-8 list-decimal space-y-4 pl-5 text-[var(--muted)]">
         <li>
           Copy the folder{" "}
           <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">
-            addons/MacTech_AutoSeller
+            AutoSeller
           </code>{" "}
           into your Ascension{" "}
           <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">
@@ -20,8 +20,12 @@ export default function DownloadPage() {
         </li>
         <li>Restart Ascension (or reload UI if available).</li>
         <li>
-          Type <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">/mtas</code>{" "}
-          for options, open a vendor to auto-sell grays.
+          Open{" "}
+          <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">
+            Interface → AddOns → AutoSeller & Repair
+          </code>{" "}
+          or type{" "}
+          <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">/autoseller</code>.
         </li>
         <li>
           On errors: <code className="font-[family-name:var(--font-mono)] text-[var(--ink)]">/mtdb export</code>{" "}

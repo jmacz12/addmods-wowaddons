@@ -1,9 +1,9 @@
 MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
-MT.ADDON_NAME = "AutoSeller"
-MT.VERSION = "0.3.1"
-MT.CHAT_TAG = "|cff55ccffAutoSeller|r"
+MT.ADDON_NAME = "AutoSeller & Repair"
+MT.VERSION = "0.3.2"
+MT.CHAT_TAG = "|cff55ccffAutoSeller & Repair|r"
 
 local defaults = {
   enabled = true,
@@ -11,6 +11,7 @@ local defaults = {
   learnOnSell = true, -- remember non-gray items you sell at a merchant
   keep = {
     resources = true,
+    consumables = true, -- potions, food, scrolls, etc.
     highEnd = true,
     soulbound = true,
     byStats = {
@@ -31,6 +32,8 @@ local defaults = {
   sellGreen = false, -- uncommon
   sellBlue = false, -- rare (also blocked if Keep high-end is on)
   sellEpic = false, -- purple
+  autoRepair = true, -- repair gear when opening a merchant that can repair
+  repairPay = "personal", -- personal | guild | guild_first
   rememberedSell = {}, -- [itemId] = entry or legacy true
   lastDebugExport = nil,
   learningEvents = {}, -- local buffer; export later for Mission Control
@@ -64,6 +67,9 @@ function MT:InitDB()
     if type(MacTechAutoSellerDB.keep.byStats) ~= "table" then
       MacTechAutoSellerDB.keep.byStats = DeepCopy(defaults.keep.byStats)
     end
+    if MacTechAutoSellerDB.keep.consumables == nil then
+      MacTechAutoSellerDB.keep.consumables = true
+    end
     if type(MacTechAutoSellerDB.rememberedSell) ~= "table" then
       MacTechAutoSellerDB.rememberedSell = {}
     end
@@ -84,8 +90,11 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     MacTechDebug:SafeCall("CreateUI", function()
       MT:CreateUI()
     end)
-    MT:Print("loaded. Interface → AddOns → AutoSeller / Rules  (/autoseller)")
+    MT:Print("loaded. Interface → AddOns → AutoSeller & Repair / Rules  (/autoseller). Sell + auto-repair at merchants.")
   elseif event == "MERCHANT_SHOW" then
+    MacTechDebug:SafeCall("AutoRepairOnMerchant", function()
+      if MT.TryAutoRepair then MT:TryAutoRepair() end
+    end)
     if MT.db and MT.db.enabled then
       MacTechDebug:SafeCall("AutoSellOnMerchant", function()
         MT:SellEligible()

@@ -1,8 +1,8 @@
 ## Interface: 30300
-## Title: AutoSeller
-## Notes: Sell junk, remember what you dump, keep gear by stats. Ascension-first.
+## Title: AutoSeller & Repair
+## Notes: Auto-sell junk, remember dumps, keep by rules, auto-repair at merchants. Ascension-first.
 ## Author: jmacz12
-## Version: 0.3.1
+## Version: 0.3.2
 ## SavedVariables: MacTechAutoSellerDB
 ## X-Website: https://control.mactech.app/wow
 ## X-Curse-Project-ID:

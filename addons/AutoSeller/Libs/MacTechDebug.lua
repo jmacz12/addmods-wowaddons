@@ -1,5 +1,5 @@
 --[[
-  Debug export for AutoSeller → Mission Control /wow/submit
+  Debug export for AutoSeller & Repair → Mission Control /wow/submit
   Works offline in Ascension (no HTTP from Lua). Internal API name kept stable.
 ]]
 
@@ -8,7 +8,7 @@ MacTechDebug = MacTechDebug or {}
 local MAX_ERRORS = 50
 local errors = {}
 local listeners = {}
-local TAG = "|cff55ff55[AutoSeller Debug]|r"
+local TAG = "|cff55ff55[AutoSeller & Repair Debug]|r"
 
 local function now()
   return date("%Y-%m-%d %H:%M:%S")
@@ -21,7 +21,7 @@ local function truncate(s, n)
 end
 
 function MacTechDebug:Register(addonName, version)
-  self.addonName = addonName or "AutoSeller"
+  self.addonName = addonName or "AutoSeller & Repair"
   self.version = version or "0.0.0"
   self.client = GetBuildInfo and select(1, GetBuildInfo()) or "unknown"
 end

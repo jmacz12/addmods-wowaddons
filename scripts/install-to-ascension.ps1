@@ -21,4 +21,4 @@ if (Test-Path $dest) {
 }
 
 Copy-Item -Recurse -Force $source $dest
-Write-Host "Installed AutoSeller -> $dest"
+Write-Host "Installed AutoSeller & Repair -> $dest"
