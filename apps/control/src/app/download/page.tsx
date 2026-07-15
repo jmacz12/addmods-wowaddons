@@ -31,7 +31,7 @@ export default function DownloadPage() {
       <p className="mt-8">
         <a
           className="inline-flex rounded-full bg-[var(--accent)] px-5 py-3 text-white"
-          href="https://github.com/jmacz12/mactech-wow-addons/releases/latest"
+          href="https://github.com/jmacz12/mactech-wowaddons/releases/latest"
           target="_blank"
           rel="noreferrer"
         >

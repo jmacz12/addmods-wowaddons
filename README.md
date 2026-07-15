@@ -3,7 +3,7 @@
 **Canonical path:** `C:\Projects\WoW-Addons`  
 **Owner dashboard:** https://control.mactech.app/wow  
 **Public error paste:** https://control.mactech.app/wow/submit  
-**Downloads:** https://github.com/jmacz12/mactech-wow-addons/releases  
+**Downloads:** https://github.com/jmacz12/mactech-wowaddons/releases  
 **Donate (Add Mods Stripe, live):** https://donate.stripe.com/9B628t7JXekf4B8gRu6c000
 
 Ascension-first World of Warcraft addons. Public brand: **Add Mods** (not MacTech Gear). Mission Control stays your ops hub.
@@ -22,7 +22,7 @@ Ascension-first World of Warcraft addons. Public brand: **Add Mods** (not MacTec
 
 1. Copy `addons/AutoSeller` into Ascension `Interface\AddOns\`
 2. Or: `powershell -File scripts/install-to-ascension.ps1 -AscensionPath "D:\Path\To\Ascension"`
-3. In game: Interface → AddOns → AutoSeller · bag coin button · `/autoseller` · `/mtdb export` → paste at https://control.mactech.app/wow/submit
+3. In game: Interface → AddOns → AutoSeller (list) · Rules (sell & keep) · bag coin button · `/autoseller` · `/mtdb export` → paste at https://control.mactech.app/wow/submit
 
 ## Mission Control
 

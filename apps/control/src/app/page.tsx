@@ -26,7 +26,7 @@ export default function HomePage() {
         </a>
         <Link
           className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-6 py-3 text-center"
-          href="https://github.com/jmacz12/mactech-wow-addons/releases/latest"
+          href="https://github.com/jmacz12/mactech-wowaddons/releases/latest"
         >
           Download release
         </Link>

@@ -19,6 +19,15 @@ local function SectionHeader(parent, text, x, y)
   return fs
 end
 
+local function SoftNote(parent, text, x, y)
+  local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  fs:SetPoint("TOPLEFT", x, y)
+  fs:SetWidth(420)
+  fs:SetJustifyH("LEFT")
+  fs:SetText(text)
+  return fs
+end
+
 local function MakeCheck(parent, label, x, y, get, set)
   local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
   cb:SetPoint("TOPLEFT", x, y)
@@ -75,7 +84,7 @@ function MT:RefreshRememberList()
   end
 
   if panel.pageLabel then
-    panel.pageLabel:SetText(string.format("Page %d / %d  (%d items)", page, pages, total))
+    panel.pageLabel:SetText(string.format("Page %d / %d · %d items", page, pages, total))
   end
   if panel.prevBtn then
     if page <= 1 then panel.prevBtn:Disable() else panel.prevBtn:Enable() end
@@ -84,7 +93,7 @@ function MT:RefreshRememberList()
     if page >= pages then panel.nextBtn:Disable() else panel.nextBtn:Enable() end
   end
   if panel.countLabel then
-    panel.countLabel:SetText(string.format("Remembered: %d", self:CountRememberedSell()))
+    panel.countLabel:SetText(string.format("%d remembered", self:CountRememberedSell()))
   end
 end
 
@@ -95,6 +104,7 @@ end
 function MT:CreateUI()
   if self.optionsPanel then return end
 
+  -- Main: remembered list
   local panel = CreateFrame("Frame", "AutoSellerOptionsPanel", UIParent)
   panel.name = "AutoSeller"
   panel.rememberPage = 1
@@ -104,92 +114,31 @@ function MT:CreateUI()
   title:SetPoint("TOPLEFT", 16, -16)
   title:SetText("AutoSeller")
 
-  local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-  sub:SetText("Sell junk, remember dumps, keep gear by rules. See also: Keep rules.")
+  SoftNote(panel, "Remembered sell list. Sell & keep rules are on the Rules page.", 16, -40)
 
-  local y = -56
+  local y = -68
 
-  -- Selling
-  SectionHeader(panel, "Selling", 16, y)
-  y = y - 22
-  MakeCheck(panel, "Enable auto-sell at merchants", 20, y,
-    function() return MT.db.enabled end,
-    function(v) MT.db.enabled = v end)
-  y = y - 26
-  MakeCheck(panel, "Sell gray junk", 20, y,
-    function() return MT.db.sellGray end,
-    function(v) MT.db.sellGray = v end)
-  MakeCheck(panel, "Sell white (not resources)", 220, y,
-    function() return MT.db.sellWhite end,
-    function(v) MT.db.sellWhite = v end)
-  y = y - 26
-  MakeCheck(panel, "Sell green", 20, y,
-    function() return MT.db.sellGreen end,
-    function(v) MT.db.sellGreen = v end)
-  MakeCheck(panel, "Sell blue", 140, y,
-    function() return MT.db.sellBlue end,
-    function(v) MT.db.sellBlue = v end)
-  MakeCheck(panel, "Sell purple", 260, y,
-    function() return MT.db.sellEpic end,
-    function(v) MT.db.sellEpic = v end)
-  y = y - 18
-  local tip = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  tip:SetPoint("TOPLEFT", 24, y)
-  tip:SetText("Green/blue/purple still respect Keep rules (high-end, soulbound, stats).")
-  y = y - 28
-
-  local sellBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  sellBtn:SetSize(100, 22)
-  sellBtn:SetPoint("TOPLEFT", 24, y)
-  sellBtn:SetText("Sell junk")
-  sellBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
-  end)
-
-  local scanBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  scanBtn:SetSize(70, 22)
-  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 6, 0)
-  scanBtn:SetText("Scan")
-  scanBtn:SetScript("OnClick", function()
-    MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
-  end)
-
-  local debugBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  debugBtn:SetSize(100, 22)
-  debugBtn:SetPoint("LEFT", scanBtn, "RIGHT", 6, 0)
-  debugBtn:SetText("Debug export")
-  debugBtn:SetScript("OnClick", function()
-    SlashCmdList.ADDMODSDEBUG("export")
-  end)
-
-  y = y - 36
-
-  -- Remember
-  SectionHeader(panel, "Remember", 16, y)
-  y = y - 22
-  MakeCheck(panel, "Remember items I sell (auto next time)", 20, y,
+  MakeCheck(panel, "Remember items I sell (auto next time)", 16, y,
     function() return MT.db.learnOnSell end,
     function(v) MT.db.learnOnSell = v end)
-  y = y - 24
-
-  MakeCheck(panel, "Opt-in learning buffer (Mission Control export)", 20, y,
-    function() return MT.db.optInLearning end,
-    function(v) MT.db.optInLearning = v end)
   y = y - 26
 
-  local countLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  countLabel:SetPoint("TOPLEFT", 24, y)
-  countLabel:SetText("Remembered: 0")
-  panel.countLabel = countLabel
-  y = y - 22
+  MakeCheck(panel, "Opt-in learning buffer (Mission Control export)", 16, y,
+    function() return MT.db.optInLearning end,
+    function(v) MT.db.optInLearning = v end)
+  y = y - 30
 
-  local searchLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-  searchLabel:SetPoint("TOPLEFT", 24, y)
-  searchLabel:SetText("Search:")
+  local countLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  countLabel:SetPoint("TOPLEFT", 16, y)
+  countLabel:SetText("0 remembered")
+  panel.countLabel = countLabel
+
+  local searchLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  searchLabel:SetPoint("LEFT", countLabel, "RIGHT", 24, 0)
+  searchLabel:SetText("Search")
 
   local searchBox = CreateFrame("EditBox", "AutoSellerRememberSearch", panel, "InputBoxTemplate")
-  searchBox:SetSize(200, 20)
+  searchBox:SetSize(180, 20)
   searchBox:SetPoint("LEFT", searchLabel, "RIGHT", 8, 0)
   searchBox:SetAutoFocus(false)
   searchBox:SetScript("OnTextChanged", function()
@@ -198,24 +147,33 @@ function MT:CreateUI()
   end)
   searchBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   panel.searchBox = searchBox
-  y = y - 26
+  y = y - 28
+
+  -- List header bar
+  local listHead = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  listHead:SetPoint("TOPLEFT", 20, y)
+  listHead:SetText("Item")
+  local listHeadDel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  listHeadDel:SetPoint("TOPLEFT", 380, y)
+  listHeadDel:SetText("")
+  y = y - 18
 
   panel.rememberRows = {}
   for i = 1, PAGE_SIZE do
     local row = CreateFrame("Frame", nil, panel)
-    row:SetSize(420, 18)
-    row:SetPoint("TOPLEFT", 24, y - ((i - 1) * 20))
+    row:SetSize(440, 20)
+    row:SetPoint("TOPLEFT", 16, y - ((i - 1) * 22))
 
     local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    label:SetPoint("LEFT", 0, 0)
-    label:SetWidth(340)
+    label:SetPoint("LEFT", 4, 0)
+    label:SetWidth(350)
     label:SetJustifyH("LEFT")
     row.label = label
 
     local del = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    del:SetSize(54, 18)
-    del:SetPoint("LEFT", label, "RIGHT", 6, 0)
-    del:SetText("Delete")
+    del:SetSize(58, 20)
+    del:SetPoint("RIGHT", 0, 0)
+    del:SetText("Remove")
     del:SetScript("OnClick", function()
       if row.itemId then
         MacTechDebug:SafeCall("UIForgetOne", function()
@@ -227,27 +185,27 @@ function MT:CreateUI()
     row:Hide()
     panel.rememberRows[i] = row
   end
-  y = y - (PAGE_SIZE * 20) - 8
+  y = y - (PAGE_SIZE * 22) - 10
 
   local prevBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  prevBtn:SetSize(70, 20)
-  prevBtn:SetPoint("TOPLEFT", 24, y)
-  prevBtn:SetText("< Prev")
+  prevBtn:SetSize(72, 22)
+  prevBtn:SetPoint("TOPLEFT", 16, y)
+  prevBtn:SetText("Previous")
   prevBtn:SetScript("OnClick", function()
     panel.rememberPage = math.max(1, (panel.rememberPage or 1) - 1)
     MT:RefreshRememberList()
   end)
   panel.prevBtn = prevBtn
 
-  local pageLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  pageLabel:SetPoint("LEFT", prevBtn, "RIGHT", 10, 0)
+  local pageLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  pageLabel:SetPoint("LEFT", prevBtn, "RIGHT", 12, 0)
   pageLabel:SetText("Page 1 / 1")
   panel.pageLabel = pageLabel
 
   local nextBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  nextBtn:SetSize(70, 20)
-  nextBtn:SetPoint("LEFT", pageLabel, "RIGHT", 10, 0)
-  nextBtn:SetText("Next >")
+  nextBtn:SetSize(72, 22)
+  nextBtn:SetPoint("LEFT", pageLabel, "RIGHT", 12, 0)
+  nextBtn:SetText("Next")
   nextBtn:SetScript("OnClick", function()
     panel.rememberPage = (panel.rememberPage or 1) + 1
     MT:RefreshRememberList()
@@ -255,12 +213,15 @@ function MT:CreateUI()
   panel.nextBtn = nextBtn
 
   local forgetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  forgetBtn:SetSize(90, 20)
-  forgetBtn:SetPoint("LEFT", nextBtn, "RIGHT", 12, 0)
-  forgetBtn:SetText("Forget all")
+  forgetBtn:SetSize(90, 22)
+  forgetBtn:SetPoint("LEFT", nextBtn, "RIGHT", 16, 0)
+  forgetBtn:SetText("Clear all")
   forgetBtn:SetScript("OnClick", function()
     MacTechDebug:SafeCall("UIClearRemembered", function() MT:ClearRememberedSell() end)
   end)
+
+  y = y - 36
+  SoftNote(panel, "Tip: open Rules (under AutoSeller) to choose what sells and what is kept.", 16, y)
 
   panel:SetScript("OnShow", function()
     MT:RefreshRememberList()
@@ -270,36 +231,98 @@ function MT:CreateUI()
   self.optionsPanel = panel
   self.frame = panel
 
-  -- Keep rules (child category — Interface AddOns list under AutoSeller)
-  local keep = CreateFrame("Frame", "AutoSellerKeepOptionsPanel", UIParent)
-  keep.name = "Keep rules"
-  keep.parent = "AutoSeller"
-  keep:Hide()
+  -- Child: Sell & Keep (Rules)
+  local rules = CreateFrame("Frame", "AutoSellerKeepOptionsPanel", UIParent)
+  rules.name = "Rules"
+  rules.parent = "AutoSeller"
+  rules:Hide()
 
-  local keepTitle = keep:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  keepTitle:SetPoint("TOPLEFT", 16, -16)
-  keepTitle:SetText("Keep rules")
+  local rulesTitle = rules:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  rulesTitle:SetPoint("TOPLEFT", 16, -16)
+  rulesTitle:SetText("Rules")
 
-  local ky = -48
-  MakeCheck(keep, "Keep resources / trade goods", 20, ky,
+  SoftNote(rules, "Choose what AutoSeller sells at merchants, and what it never sells.", 16, -40)
+
+  local ky = -68
+
+  -- Selling
+  SectionHeader(rules, "Selling", 16, ky)
+  ky = ky - 24
+
+  MakeCheck(rules, "Enable auto-sell at merchants", 16, ky,
+    function() return MT.db.enabled end,
+    function(v) MT.db.enabled = v end)
+  ky = ky - 28
+
+  MakeCheck(rules, "Gray junk", 16, ky,
+    function() return MT.db.sellGray end,
+    function(v) MT.db.sellGray = v end)
+  MakeCheck(rules, "White (not resources)", 160, ky,
+    function() return MT.db.sellWhite end,
+    function(v) MT.db.sellWhite = v end)
+  ky = ky - 26
+
+  MakeCheck(rules, "Green", 16, ky,
+    function() return MT.db.sellGreen end,
+    function(v) MT.db.sellGreen = v end)
+  MakeCheck(rules, "Blue", 120, ky,
+    function() return MT.db.sellBlue end,
+    function(v) MT.db.sellBlue = v end)
+  MakeCheck(rules, "Purple", 220, ky,
+    function() return MT.db.sellEpic end,
+    function(v) MT.db.sellEpic = v end)
+  ky = ky - 22
+
+  SoftNote(rules, "Colored sells still respect Keep rules below (high-end, soulbound, stats).", 20, ky)
+  ky = ky - 26
+
+  local sellBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
+  sellBtn:SetSize(100, 24)
+  sellBtn:SetPoint("TOPLEFT", 16, ky)
+  sellBtn:SetText("Sell now")
+  sellBtn:SetScript("OnClick", function()
+    MacTechDebug:SafeCall("UISell", function() MT:SellEligible() end)
+  end)
+
+  local scanBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
+  scanBtn:SetSize(80, 24)
+  scanBtn:SetPoint("LEFT", sellBtn, "RIGHT", 8, 0)
+  scanBtn:SetText("Scan bags")
+  scanBtn:SetScript("OnClick", function()
+    MacTechDebug:SafeCall("UIScan", function() MT:ScanInventory(true) end)
+  end)
+
+  local debugBtn = CreateFrame("Button", nil, rules, "UIPanelButtonTemplate")
+  debugBtn:SetSize(110, 24)
+  debugBtn:SetPoint("LEFT", scanBtn, "RIGHT", 8, 0)
+  debugBtn:SetText("Debug export")
+  debugBtn:SetScript("OnClick", function()
+    SlashCmdList.ADDMODSDEBUG("export")
+  end)
+
+  ky = ky - 40
+
+  -- Keep
+  SectionHeader(rules, "Keep", 16, ky)
+  ky = ky - 24
+
+  MakeCheck(rules, "Resources / trade goods", 16, ky,
     function() return MT.db.keep.resources end,
     function(v) MT.db.keep.resources = v end)
-  ky = ky - 26
-  MakeCheck(keep, "Keep high-end (Rare+)", 20, ky,
+  MakeCheck(rules, "High-end (Rare+)", 220, ky,
     function() return MT.db.keep.highEnd end,
     function(v) MT.db.keep.highEnd = v end)
   ky = ky - 26
-  MakeCheck(keep, "Keep soulbound", 20, ky,
+
+  MakeCheck(rules, "Soulbound", 16, ky,
     function() return MT.db.keep.soulbound end,
     function(v) MT.db.keep.soulbound = v end)
   ky = ky - 32
 
-  local statsTitle = keep:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  statsTitle:SetPoint("TOPLEFT", 20, ky)
-  statsTitle:SetText("Keep gear with these stats:")
+  SectionHeader(rules, "Keep by stats", 16, ky)
   ky = ky - 24
 
-  local enableStatsCb = MakeCheck(keep, "Enable keep-by-stats", 20, ky,
+  local enableStatsCb = MakeCheck(rules, "Enable keep-by-stats", 16, ky,
     function() return MT.db.keep.byStats.enabled end,
     function(v)
       MT.db.keep.byStats.enabled = v
@@ -307,34 +330,37 @@ function MT:CreateUI()
     end)
   ky = ky - 26
 
+  SoftNote(rules, "When enabled, gear with the selected stats is never sold.", 20, ky)
+  ky = ky - 22
+
   local stats = { "intellect", "stamina", "spirit", "agility", "strength", "haste", "crit", "hit" }
-  keep.statChecks = {}
+  rules.statChecks = {}
   local col, rowN = 0, 0
   for _, stat in ipairs(stats) do
-    local sx = 36 + (col * 150)
+    local sx = 24 + (col * 140)
     local sy = ky - (rowN * 24)
-    local cb, text = MakeCheck(keep, stat:gsub("^%l", string.upper), sx, sy,
+    local cb, text = MakeCheck(rules, stat:gsub("^%l", string.upper), sx, sy,
       function() return MT.db.keep.byStats[stat] end,
       function(v) MT.db.keep.byStats[stat] = v end)
-    keep.statChecks[#keep.statChecks + 1] = { cb = cb, text = text }
+    rules.statChecks[#rules.statChecks + 1] = { cb = cb, text = text }
     col = col + 1
-    if col > 1 then col = 0; rowN = rowN + 1 end
+    if col > 2 then col = 0; rowN = rowN + 1 end
   end
 
   function MT:RefreshStatChecksEnabled()
     local on = MT.db.keep.byStats.enabled and true or false
-    for _, row in ipairs(keep.statChecks or {}) do
+    for _, row in ipairs(rules.statChecks or {}) do
       SetCheckInteractive(row.cb, row.text, on)
     end
   end
 
-  keep:SetScript("OnShow", function()
+  rules:SetScript("OnShow", function()
     enableStatsCb:SetChecked(MT.db.keep.byStats.enabled)
     MT:RefreshStatChecksEnabled()
   end)
 
-  InterfaceOptions_AddCategory(keep)
-  self.keepOptionsPanel = keep
+  InterfaceOptions_AddCategory(rules)
+  self.keepOptionsPanel = rules
   self:RefreshStatChecksEnabled()
 
   self:CreateBagButton()
@@ -363,7 +389,7 @@ function MT:CreateBagButton()
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("AutoSeller")
     if MerchantFrame and MerchantFrame:IsShown() then
-      GameTooltip:AddLine("Click: sell junk", 0.8, 0.8, 0.8)
+      GameTooltip:AddLine("Click: sell now", 0.8, 0.8, 0.8)
     else
       GameTooltip:AddLine("Click: open settings", 0.8, 0.8, 0.8)
     end
@@ -383,7 +409,6 @@ end
 
 function MT:OpenSettings()
   if not self.optionsPanel then self:CreateUI() end
-  -- Open Interface Options to AutoSeller (call twice — known Blizzard quirk)
   InterfaceOptionsFrame_OpenToCategory(self.optionsPanel)
   InterfaceOptionsFrame_OpenToCategory(self.optionsPanel)
 end

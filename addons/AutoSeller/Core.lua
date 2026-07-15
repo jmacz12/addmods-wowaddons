@@ -2,7 +2,7 @@ MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
 MT.ADDON_NAME = "AutoSeller"
-MT.VERSION = "0.3.0"
+MT.VERSION = "0.3.1"
 MT.CHAT_TAG = "|cff55ccffAutoSeller|r"
 
 local defaults = {
@@ -84,7 +84,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     MacTechDebug:SafeCall("CreateUI", function()
       MT:CreateUI()
     end)
-    MT:Print("loaded. Interface → AddOns → AutoSeller  (/autoseller)")
+    MT:Print("loaded. Interface → AddOns → AutoSeller / Rules  (/autoseller)")
   elseif event == "MERCHANT_SHOW" then
     if MT.db and MT.db.enabled then
       MacTechDebug:SafeCall("AutoSellOnMerchant", function()
