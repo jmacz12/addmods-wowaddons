@@ -6,6 +6,7 @@ Newest first. One line per ship.
 
 ---
 
+- 2026-07-15: **Public GitHub cleanup (live)** — Repo renamed to `addmods-wowaddons`; removed Mission Control links from public README / homepage / addon website field.
 - 2026-07-15: **AutoSeller & Repair v0.3.2 (live)** — Display rename; Keep consumables; auto-repair (my gold / guild / guild first); skip unsellable items (no vendor price); bag button removed.
 - 2026-07-15: **AutoSeller v0.3.1 (live)** — Rules page holds Selling + Keep; remember list cleaned up; GitHub repo renamed to `mactech-wowaddons`; other public repos set private.
 - 2026-07-15: **AutoSeller v0.3.0 (live)** — Interface→AddOns settings, Selling/Remember/Keep rules, searchable paged remember list, sell gray/white/green/blue/purple (keep rules respected), bag coin button; folder `addons/AutoSeller`.

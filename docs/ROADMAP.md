@@ -1,10 +1,10 @@
 # WoW Addons (Add Mods) — roadmap
 
-**Live downloads:** https://github.com/jmacz12/mactech-wowaddons/releases  
-**Owner inbox:** https://control.mactech.app/wow  
+**Live downloads:** https://github.com/jmacz12/addmods-wowaddons/releases  
+**Owner inbox (private):** https://control.mactech.app/wow  
 **Open in Cursor:** `C:\Projects\WoW-Addons`
 
-**Brand lock:** Portfolio brand is **Add Mods**. Addon in-game name is **AutoSeller & Repair** — never prefix “Add Mods” onto the title. Folder stays `addons/AutoSeller`; `SavedVariables` still `MacTechAutoSellerDB` until careful migrate. Mission Control at `control.mactech.app` stays as *your* ops hub; players should not see “MacTech” on the addon.
+**Brand lock:** Portfolio brand is **Add Mods**. Addon in-game name is **AutoSeller & Repair** — never prefix “Add Mods” onto the title. Folder stays `addons/AutoSeller`; `SavedVariables` still `MacTechAutoSellerDB` until careful migrate. Mission Control stays *your* ops hub — do not put `control.mactech.app` on the public GitHub README or GitHub Website field.
 
 **Forward only** — keep building, don’t live in planning docs.
 
@@ -12,7 +12,7 @@
 
 ## Last ship
 
-**2026-07-15:** Ascension **AutoSeller & Repair v0.3.2** on GitHub Releases — consumables keep, auto-repair (pay source), skip unsellable, display rename; repo `mactech-wowaddons`.
+**2026-07-15:** Ascension **AutoSeller & Repair v0.3.2** — then public-facing cleanup: repo renamed to `addmods-wowaddons`, Mission Control links removed from public README / GitHub homepage.
 
 ---
 
@@ -39,10 +39,10 @@ Pick from Later — or Ascension Discord share / Mission Control learning flush.
 
 | Audience | Where to publish |
 |----------|------------------|
-| **Ascension players** | GitHub Releases + Ascension Discord / forums · later launcher Addon-Requests |
+| **Ascension players** | GitHub Releases + Ascension Discord |
 | **Retail later** | CurseForge / Wago |
 
-Public GitHub profile should only show **`mactech-wowaddons`**.
+Public GitHub profile should only show **`addmods-wowaddons`**.
 
 ---
 
@@ -51,11 +51,11 @@ Public GitHub profile should only show **`mactech-wowaddons`**.
 ```
 WoW-Addons — read tools + ROADMAP. Focus Ascension only.
 
-Brand: Add Mods portfolio; addon title AutoSeller & Repair (never "Add Mods …"). No MacTech for players. SavedVariables still MacTechAutoSellerDB until careful migrate.
+Brand: Add Mods; addon title AutoSeller & Repair. No MacTech for players. SavedVariables still MacTechAutoSellerDB until careful migrate.
 
-Done: AutoSeller & Repair v0.3.2 on GitHub Releases. Repo: jmacz12/mactech-wowaddons (only public). Mission Control /wow + Stripe donate live.
+Done: AutoSeller & Repair v0.3.2. Repo: jmacz12/addmods-wowaddons (only public). Owner inbox: control.mactech.app/wow (not on public README).
 
-Next: pick from ROADMAP Later (Discord share, learning flush, SavedVariables rename, or next addon).
+Next: pick from ROADMAP Later.
 
 Canonical: C:\Projects\WoW-Addons
 Ascension path: C:\Ascension\Launcher\resources\ascension-live

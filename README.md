@@ -1,29 +1,26 @@
-# Add Mods — WoW Addons
+# Add Mods — AutoSeller & Repair
 
-**Canonical path:** `C:\Projects\WoW-Addons`  
-**Owner dashboard:** https://control.mactech.app/wow  
-**Public error paste:** https://control.mactech.app/wow/submit  
-**Downloads:** https://github.com/jmacz12/mactech-wowaddons/releases  
-**Donate (Add Mods Stripe, live):** https://donate.stripe.com/9B628t7JXekf4B8gRu6c000
+Free Ascension WoW addon: **auto-sell junk** and **auto-repair** at merchants, with keep rules and a remembered sell list.
 
-Ascension-first World of Warcraft addons. Public brand: **Add Mods** (not MacTech Gear). Mission Control stays your ops hub.
+**Download:** https://github.com/jmacz12/addmods-wowaddons/releases  
+**Donate:** https://donate.stripe.com/9B628t7JXekf4B8gRu6c000
 
-> Note: An older copy may still exist at `C:\Users\Maca_\Projects\WoW-Addons` if Cursor had it open. Use **this** folder only.
+## Install (Ascension)
 
-## Layout
+1. Download the latest release zip
+2. Put the `AutoSeller` folder into `Interface\AddOns\`
+3. `/reload`
+4. **Interface → AddOns → AutoSeller & Repair** (or `/autoseller`)
 
-| Path | Purpose |
-|------|---------|
-| `addons/AutoSeller` | AutoSeller & Repair — sell, remember, keep rules, auto-repair |
-| `apps/control` | Legacy mini-site (superseded by Mission Control `/wow`) |
-| `scripts/` | Install into Ascension + pack zip |
+## Features
 
-## Install AutoSeller & Repair (Ascension 1.0.102)
+- Sell by quality (gray / white / green / blue / purple)
+- Keep resources, consumables, soulbound, high-end, optional keep-by-stats
+- Remembered sell list (search, pages, remove)
+- Auto-repair (your gold, guild bank, or guild first)
+- Skips items vendors will not buy
 
-1. Copy `addons/AutoSeller` into Ascension `Interface\AddOns\` (folder name stays `AutoSeller`)
-2. Or: `powershell -File scripts/install-to-ascension.ps1 -AscensionPath "D:\Path\To\Ascension"`
-3. In game: Interface → AddOns → **AutoSeller & Repair** · Rules · `/autoseller` · `/mtdb export` → paste at https://control.mactech.app/wow/submit
+## Notes
 
-## Mission Control
-
-Error reports store in the **Mission Control** Supabase project (`wow_addon_debug_reports`). You view them while logged into https://control.mactech.app/wow.
+- In-game title is **AutoSeller & Repair**; folder name stays `AutoSeller`
+- Slash: `/autoseller` · `/mtas` · `/ams`

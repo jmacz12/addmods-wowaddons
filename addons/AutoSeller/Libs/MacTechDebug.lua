@@ -118,7 +118,7 @@ SlashCmdList.ADDMODSDEBUG = function(msg)
     if MacTechAutoSellerDB then
       MacTechAutoSellerDB.lastDebugExport = payload
     end
-    DEFAULT_CHAT_FRAME:AddMessage(TAG .. " Export saved. Paste it at control.mactech.app/wow/submit")
+    DEFAULT_CHAT_FRAME:AddMessage(TAG .. " Export saved to your addon SavedVariables (for support).")
     DEFAULT_CHAT_FRAME:AddMessage(truncate(payload, 240))
     return
   end

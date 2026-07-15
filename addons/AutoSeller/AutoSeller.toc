@@ -4,7 +4,7 @@
 ## Author: jmacz12
 ## Version: 0.3.2
 ## SavedVariables: MacTechAutoSellerDB
-## X-Website: https://control.mactech.app/wow
+## X-Website: https://github.com/jmacz12/addmods-wowaddons/releases
 ## X-Curse-Project-ID:
 ## X-Wago-ID:
 ## X-Ascension-Client: 1.0.102

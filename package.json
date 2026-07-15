@@ -1,5 +1,5 @@
 {
-  "name": "mactech-wowaddons",
+  "name": "addmods-wowaddons",
   "private": true,
   "scripts": {
     "dev:control": "npm --prefix apps/control run dev",
