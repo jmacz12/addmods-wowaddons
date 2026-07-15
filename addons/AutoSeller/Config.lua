@@ -100,16 +100,38 @@ function MT:IsRememberedSell(link)
   return v == true or type(v) == "table"
 end
 
-function MT:RememberSellItem(link, quality)
-  if not self.db.learnOnSell then return false end
-  -- Gray is always covered by the Gray junk toggle — never clutter the list
-  quality = quality or 0
+-- Quality from link color when GetItemInfo is not cached yet (Ascension / first loot).
+local LINK_QUALITY = {
+  ["9d9d9d"] = 0,
+  ["ffffff"] = 1,
+  ["1eff00"] = 2,
+  ["0070dd"] = 3,
+  ["a335ee"] = 4,
+  ["ff8000"] = 5,
+  ["e6cc80"] = 6,
+}
+
+function MT:GetLinkQuality(link, fallback)
+  if type(fallback) == "number" then
+    return fallback
+  end
+  if not link then return 0 end
+  local _, _, q = GetItemInfo(link)
+  if type(q) == "number" then
+    return q
+  end
+  local hex = link:match("|cff(%x%x%x%x%x%x)")
+  if hex and LINK_QUALITY[string.lower(hex)] then
+    return LINK_QUALITY[string.lower(hex)]
+  end
+  return 0
+end
+
+function MT:RememberSellItem(link, quality, quiet)
+  if not self.db or not self.db.learnOnSell then return false end
+  quality = self:GetLinkQuality(link, quality)
+  -- Only skip true gray junk — whites/greens/etc. always land on the list when you sell them
   if quality < 1 then return false end
-  -- Skip qualities already covered by color auto-sell (redundant with those toggles)
-  if quality == 1 and self.db.sellWhite then return false end
-  if quality == 2 and self.db.sellGreen then return false end
-  if quality == 3 and self.db.sellBlue then return false end
-  if quality == 4 and self.db.sellEpic then return false end
   local id = self:GetItemId(link)
   if not id then return false end
   if type(self.db.rememberedSell) ~= "table" then
@@ -121,13 +143,17 @@ function MT:RememberSellItem(link, quality)
   if type(prev) == "table" and not name then
     name = prev.n
   end
+  name = name or ("Item #" .. id)
   self.db.rememberedSell[id] = {
     t = time(),
     q = quality or (type(prev) == "table" and prev.q) or 0,
-    n = name or ("Item #" .. id),
+    n = name,
   }
   if wasNew then
     self:RecordLearning("remembered", { id = id, q = quality })
+    if not quiet and not self._bulkSelling then
+      self:Print("Remembered: " .. name)
+    end
   end
   if self.RefreshRememberList then
     self:RefreshRememberList()
@@ -436,26 +462,68 @@ end
 function MT:InstallSellHook()
   if self._sellHookInstalled then return end
   self._sellHookInstalled = true
-  -- hooksecurefunc runs AFTER the sell — bag slot is already empty, so link is nil.
-  -- Wrap UseContainerItem to capture the item before the vendor takes it.
+
+  -- Stash bag/slot before Ascension/Blizzard sells (UseContainerItem empties the slot).
+  local pending = { bag = nil, slot = nil, link = nil, quality = nil }
+
+  local function CapturePending(bag, slot)
+    if not MerchantFrame or not MerchantFrame:IsShown() then return end
+    if not MT.db or not MT.db.learnOnSell then return end
+    local link = GetContainerItemLink(bag, slot)
+    if not link then return end
+    pending.bag, pending.slot = bag, slot
+    pending.link = link
+    pending.quality = MT:GetLinkQuality(link)
+  end
+
+  local function LearnFromPending(bag, slot)
+    local link, quality = pending.link, pending.quality
+    if pending.bag == bag and pending.slot == slot and link then
+      pending.bag, pending.slot, pending.link, pending.quality = nil, nil, nil, nil
+      MacTechDebug:SafeCall("LearnOnSell", function()
+        MT:RememberSellItem(link, quality)
+      end)
+      return
+    end
+    -- Fallback: still try live link if sell path didn't go through our capture
+    link = GetContainerItemLink(bag, slot)
+    if link then
+      MacTechDebug:SafeCall("LearnOnSell", function()
+        MT:RememberSellItem(link, MT:GetLinkQuality(link))
+      end)
+    end
+  end
+
+  -- Bag button right-click / use while vendor is open
+  if ContainerFrameItemButton_OnClick then
+    hooksecurefunc("ContainerFrameItemButton_OnClick", function(self, button)
+      if button ~= "RightButton" then return end
+      local bag = self:GetParent() and self:GetParent():GetID()
+      local slot = self:GetID()
+      if bag and slot then
+        CapturePending(bag, slot)
+      end
+    end)
+  end
+  if ContainerFrameItemButton_OnModifiedClick then
+    hooksecurefunc("ContainerFrameItemButton_OnModifiedClick", function(self)
+      local bag = self:GetParent() and self:GetParent():GetID()
+      local slot = self:GetID()
+      if bag and slot then
+        CapturePending(bag, slot)
+      end
+    end)
+  end
+
+  -- Wrap UseContainerItem: capture before sell, remember after
   local orig = UseContainerItem
   UseContainerItem = function(bag, slot, onSelf)
-    local link, quality
-    if MerchantFrame and MerchantFrame:IsShown() and MT.db and MT.db.learnOnSell then
-      link = GetContainerItemLink(bag, slot)
-      if link then
-        quality = select(3, GetItemInfo(link)) or 0
-      end
-    end
+    CapturePending(bag, slot)
     if onSelf ~= nil then
       orig(bag, slot, onSelf)
     else
       orig(bag, slot)
     end
-    if link then
-      MacTechDebug:SafeCall("LearnOnSell", function()
-        MT:RememberSellItem(link, quality or 0)
-      end)
-    end
+    LearnFromPending(bag, slot)
   end
 end

@@ -185,6 +185,7 @@ function MT:SellEligible()
   local sellable = self:ScanInventory(false)
   local sold = 0
   local countBefore = self:CountRememberedSell()
+  self._bulkSelling = true
   for _, item in ipairs(sellable) do
     local ok = pcall(UseContainerItem, item.bag, item.slot)
     if ok then
@@ -193,6 +194,7 @@ function MT:SellEligible()
       self:RecordLearning("sold", { q = item.quality, id = self:GetItemId(item.link) })
     end
   end
+  self._bulkSelling = false
   local newlyRemembered = math.max(0, self:CountRememberedSell() - countBefore)
   if newlyRemembered > 0 then
     self:Print(string.format(
@@ -201,7 +203,7 @@ function MT:SellEligible()
     ))
   else
     self:Print(string.format(
-      "Sold %d item(s). Remembered list: %d (non-gray items not already covered by color rules get added).",
+      "Sold %d item(s). Remembered list: %d (gray junk is not added; whites and up are).",
       sold, self:CountRememberedSell()
     ))
   end

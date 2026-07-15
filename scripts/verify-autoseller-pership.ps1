@@ -7,10 +7,11 @@ $toc = Get-Content (Join-Path $root "AutoSeller.toc") -Raw
 $seller = Get-Content (Join-Path $root "Seller.lua") -Raw
 $fail = New-Object System.Collections.Generic.List[string]
 
+$EXPECTED_VER = "0.3.10"
 $tocVer = if ($toc -match '## Version:\s*(\S+)') { $Matches[1] } else { "?" }
 $coreVer = if ($core -match 'MT\.VERSION\s*=\s*"([^"]+)"') { $Matches[1] } else { "?" }
-if ($tocVer -ne "0.3.9" -or $coreVer -ne "0.3.9") {
-  $fail.Add("Version mismatch toc=$tocVer core=$coreVer")
+if ($tocVer -ne $EXPECTED_VER -or $coreVer -ne $EXPECTED_VER) {
+  $fail.Add("Version mismatch toc=$tocVer core=$coreVer expected=$EXPECTED_VER")
 }
 
 if ($ui -match 'SetText\("[^"]*MacTech') { $fail.Add("MacTech in SetText") }
@@ -99,7 +100,10 @@ if ($cfg -notmatch 'not colorSell') { $fail.Add("Soulbound/high-end may not yiel
 if ($cfg -notmatch 'never auto-sell resources') { $fail.Add("White resource hard-skip missing") }
 if ($cfg -notmatch 'WEAKER_MAX_QUALITY = 2') { $fail.Add("Weaker should be green-max") }
 if ($cfg -notmatch 'function MT:ArmorTypeSellEnabled') { $fail.Add("ArmorTypeSellEnabled missing") }
-if ($cfg -notmatch 'Wrap UseContainerItem|capture the item before') { $fail.Add("Remember pre-capture wrap missing") }
+if ($cfg -notmatch 'itemType ~= "Armor"') { $fail.Add("Armor sell must require Armor type (not cloth mats)") }
+if ($cfg -notmatch 'quality < 1 then return false') { $fail.Add("Remember must skip gray only") }
+if ($cfg -match 'quality == 1 and self\.db\.sellWhite then return') { $fail.Add("Remember still skips whites when sellWhite on") }
+if ($cfg -notmatch 'CapturePending|GetLinkQuality') { $fail.Add("Remember pre-capture / quality helpers missing") }
 if ($seller -notmatch 'function MT:TryAutoRepair\(force\)') { $fail.Add("TryAutoRepair(force) missing") }
 if ($seller -notmatch 'if not force and not self\.db\.autoRepair') { $fail.Add("Manual repair force gate missing") }
 if ($ui -notmatch 'StaticPopup_Show\("AUTOSELLER_CLEAR_REMEMBERED"\)') { $fail.Add("Clear all confirm not wired") }
@@ -109,7 +113,9 @@ if ($core -notmatch 'jmacz12/addmods-wowaddons/releases') { $fail.Add("Download 
 if ($core -match 'control\.mactech') { $fail.Add("Owner inbox leaked into Core") }
 if ($core -notmatch 'sellArmor') { $fail.Add("sellArmor defaults missing") }
 
-function Test-Matrix([hashtable]$s) {
+# Mirrors GetKeepReason → GetSellReason (keeps always win; then color → armor → remember → weaker)
+function Test-KeepSell([hashtable]$s) {
+  if ($s.unsellable) { return "skip:unsellable" }
   if ($s.resourcesKeep -and $s.isResource) { return "keep:resources" }
   if ($s.consumablesKeep -and $s.isConsumable) { return "keep:consumables" }
   if ($s.statsOn -and $s.hasStat) { return "keep:stats" }
@@ -119,36 +125,106 @@ function Test-Matrix([hashtable]$s) {
     if ($s.q -eq 1 -and $s.isResource) { return "skip:white-resource" }
     return "sell:color"
   }
-  if ($s.armorSell) { return "sell:armor" }
+  # Armor gear only — cloth/leather mats never count as armorSell in real code
+  if ($s.armorSell -and $s.isArmorGear) { return "sell:armor" }
   if ($s.remembered) { return "sell:remembered" }
   if ($s.weakerOn -and $s.isWeaker -and $s.q -le 2) { return "sell:weaker" }
   return "skip"
 }
 
+# Mirrors RememberSellItem: gray skipped; whites+ added when learnOnSell
+function Test-Remember([hashtable]$s) {
+  if (-not $s.learnOnSell) { return "no" }
+  if ($s.q -lt 1) { return "no-gray" }
+  return "yes"
+}
+
+function Case([string]$name, [string]$exp, [hashtable]$props) {
+  $h = @{ name = $name; exp = $exp }
+  foreach ($k in $props.Keys) { $h[$k] = $props[$k] }
+  # Defaults so each case need not repeat everything
+  if (-not $h.ContainsKey('resourcesKeep')) { $h.resourcesKeep = $true }
+  if (-not $h.ContainsKey('consumablesKeep')) { $h.consumablesKeep = $true }
+  if (-not $h.ContainsKey('isResource')) { $h.isResource = $false }
+  if (-not $h.ContainsKey('isConsumable')) { $h.isConsumable = $false }
+  if (-not $h.ContainsKey('statsOn')) { $h.statsOn = $false }
+  if (-not $h.ContainsKey('hasStat')) { $h.hasStat = $false }
+  if (-not $h.ContainsKey('soulboundKeep')) { $h.soulboundKeep = $true }
+  if (-not $h.ContainsKey('isSoulbound')) { $h.isSoulbound = $false }
+  if (-not $h.ContainsKey('highEndKeep')) { $h.highEndKeep = $true }
+  if (-not $h.ContainsKey('q')) { $h.q = 1 }
+  if (-not $h.ContainsKey('colorSell')) { $h.colorSell = $false }
+  if (-not $h.ContainsKey('armorSell')) { $h.armorSell = $false }
+  if (-not $h.ContainsKey('isArmorGear')) { $h.isArmorGear = $false }
+  if (-not $h.ContainsKey('remembered')) { $h.remembered = $false }
+  if (-not $h.ContainsKey('weakerOn')) { $h.weakerOn = $false }
+  if (-not $h.ContainsKey('isWeaker')) { $h.isWeaker = $false }
+  if (-not $h.ContainsKey('unsellable')) { $h.unsellable = $false }
+  return $h
+}
+
 $cases = @(
-  @{ name = 'green+stat vs green sell'; exp = 'keep:stats'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $true; hasStat = $true; soulboundKeep = $true; isSoulbound = $false; highEndKeep = $true; q = 2; colorSell = $true; armorSell = $true; remembered = $false; weakerOn = $true; isWeaker = $true },
-  @{ name = 'blue soulbound color wins'; exp = 'sell:color'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $true; isSoulbound = $true; highEndKeep = $true; q = 3; colorSell = $true; armorSell = $false; remembered = $false; weakerOn = $false; isWeaker = $false },
-  @{ name = 'blue soulbound no color keep'; exp = 'keep:soulbound'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $true; isSoulbound = $true; highEndKeep = $true; q = 3; colorSell = $false; armorSell = $true; remembered = $true; weakerOn = $false; isWeaker = $false },
-  @{ name = 'white resource never color-sold'; exp = 'skip:white-resource'; resourcesKeep = $false; consumablesKeep = $true; isResource = $true; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $false; isSoulbound = $false; highEndKeep = $false; q = 1; colorSell = $true; armorSell = $false; remembered = $false; weakerOn = $false; isWeaker = $false },
-  @{ name = 'plate armor before remember'; exp = 'sell:armor'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $true; isSoulbound = $false; highEndKeep = $true; q = 2; colorSell = $false; armorSell = $true; remembered = $true; weakerOn = $true; isWeaker = $true },
-  @{ name = 'remembered after keeps'; exp = 'sell:remembered'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $true; isSoulbound = $false; highEndKeep = $true; q = 2; colorSell = $false; armorSell = $false; remembered = $true; weakerOn = $true; isWeaker = $true },
-  @{ name = 'weaker only if no remember/color'; exp = 'sell:weaker'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $true; isSoulbound = $false; highEndKeep = $true; q = 2; colorSell = $false; armorSell = $false; remembered = $false; weakerOn = $true; isWeaker = $true },
-  @{ name = 'blue weaker blocked by q'; exp = 'skip'; resourcesKeep = $true; consumablesKeep = $true; isResource = $false; isConsumable = $false; statsOn = $false; hasStat = $false; soulboundKeep = $false; isSoulbound = $false; highEndKeep = $false; q = 3; colorSell = $false; armorSell = $false; remembered = $false; weakerOn = $true; isWeaker = $true },
-  @{ name = 'herb kept before stats'; exp = 'keep:resources'; resourcesKeep = $true; consumablesKeep = $true; isResource = $true; isConsumable = $false; statsOn = $true; hasStat = $true; soulboundKeep = $true; isSoulbound = $false; highEndKeep = $true; q = 1; colorSell = $true; armorSell = $false; remembered = $false; weakerOn = $false; isWeaker = $false }
+  # Hard keeps win over every sell path
+  (Case "herb kept before color/stats/armor" "keep:resources" @{ isResource = $true; statsOn = $true; hasStat = $true; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true; q = 1 }),
+  (Case "potion kept before color" "keep:consumables" @{ isConsumable = $true; colorSell = $true; remembered = $true; q = 1 }),
+  (Case "green intellect kept vs green+plate+remember" "keep:stats" @{ statsOn = $true; hasStat = $true; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true; q = 2 }),
+
+  # Soft keeps only when color not selling
+  (Case "blue soulbound + blue sell = sell" "sell:color" @{ isSoulbound = $true; q = 3; colorSell = $true }),
+  (Case "blue soulbound + no blue sell = keep" "keep:soulbound" @{ isSoulbound = $true; q = 3; colorSell = $false; armorSell = $true; isArmorGear = $true; remembered = $true }),
+  (Case "blue high-end + no blue sell = keep" "keep:high-end" @{ q = 3; colorSell = $false; armorSell = $true; isArmorGear = $true; remembered = $true }),
+  (Case "blue high-end OFF + plate ON = sell armor" "sell:armor" @{ highEndKeep = $false; soulboundKeep = $false; q = 3; colorSell = $false; armorSell = $true; isArmorGear = $true }),
+
+  # Resources hard-skip on white color even if Keep resources off
+  (Case "white cloth mat never color-sold" "skip:white-resource" @{ resourcesKeep = $false; isResource = $true; q = 1; colorSell = $true }),
+
+  # Cloth mats vs Cloth armor: mats are NOT armor gear
+  (Case "cloth mat with Cloth armor toggle = skip not armor" "skip" @{ isResource = $false; resourcesKeep = $false; q = 2; colorSell = $false; armorSell = $true; isArmorGear = $false }),
+  (Case "cloth robe with Cloth armor toggle = sell armor" "sell:armor" @{ q = 2; colorSell = $false; armorSell = $true; isArmorGear = $true }),
+
+  # Sell priority after keeps
+  (Case "green color before plate/remember/weaker" "sell:color" @{ q = 2; colorSell = $true; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true }),
+  (Case "plate before remember/weaker" "sell:armor" @{ q = 2; colorSell = $false; armorSell = $true; isArmorGear = $true; remembered = $true; weakerOn = $true; isWeaker = $true }),
+  (Case "remembered after keeps no color/armor" "sell:remembered" @{ q = 2; remembered = $true; weakerOn = $true; isWeaker = $true }),
+  (Case "remembered herb still kept" "keep:resources" @{ isResource = $true; remembered = $true; q = 1 }),
+  (Case "weaker only if no remember/color/armor" "sell:weaker" @{ q = 2; weakerOn = $true; isWeaker = $true }),
+  (Case "blue weaker blocked by quality" "skip" @{ highEndKeep = $false; soulboundKeep = $false; q = 3; weakerOn = $true; isWeaker = $true }),
+  (Case "green equal/stronger than equipped = skip" "skip" @{ q = 2; weakerOn = $true; isWeaker = $false }),
+
+  # Unsellable
+  (Case "quest item no vendor price = skip" "skip:unsellable" @{ unsellable = $true; colorSell = $true; q = 1 }),
+
+  # Defaults-ish everyday bag
+  (Case "gray junk color sell" "sell:color" @{ q = 0; colorSell = $true }),
+  (Case "white junk color sell" "sell:color" @{ q = 1; colorSell = $true }),
+  (Case "green no rules = skip safe default" "skip" @{ q = 2 })
 )
 
 foreach ($c in $cases) {
-  $got = Test-Matrix $c
-  if ($got -ne $c.exp) { $fail.Add("Matrix $($c.name): got $got expected $($c.exp)") }
+  $got = Test-KeepSell $c
+  if ($got -ne $c.exp) { $fail.Add("Keep/Sell [$($c.name)]: got $got expected $($c.exp)") }
+}
+
+$rememberCases = @(
+  @{ name = "gray not remembered"; q = 0; learnOnSell = $true; exp = "no-gray" },
+  @{ name = "white remembered even if sellWhite on"; q = 1; learnOnSell = $true; exp = "yes" },
+  @{ name = "green remembered"; q = 2; learnOnSell = $true; exp = "yes" },
+  @{ name = "blue remembered"; q = 3; learnOnSell = $true; exp = "yes" },
+  @{ name = "learn toggle off"; q = 2; learnOnSell = $false; exp = "no" }
+)
+foreach ($c in $rememberCases) {
+  $got = Test-Remember $c
+  if ($got -ne $c.exp) { $fail.Add("Remember [$($c.name)]: got $got expected $($c.exp)") }
 }
 
 Write-Host "=== PRE-SHIP VERIFICATION ==="
 Write-Host "Version: toc=$tocVer core=$coreVer"
-Write-Host "Matrix cases: $($cases.Count)"
+Write-Host "Keep/Sell scenarios: $($cases.Count)"
+Write-Host "Remember scenarios: $($rememberCases.Count)"
 if ($fail.Count -eq 0) {
   Write-Host "PASS: all checks clean"
   exit 0
 }
-Write-Host "FAIL:"
+Write-Host "FAIL ($($fail.Count)):"
 $fail | ForEach-Object { Write-Host " - $_" }
 exit 1

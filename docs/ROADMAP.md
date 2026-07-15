@@ -12,7 +12,7 @@
 
 ## Last ship
 
-**2026-07-15:** Ascension **AutoSeller & Repair v0.3.9** live on GitHub Releases (remember-on-sell fix, armor-type sells, Rules Keep/Selling/Repair tabs). Public repo: `addmods-wowaddons`.
+**2026-07-15:** Ascension **AutoSeller & Repair v0.3.10** live on GitHub Releases (right-click remember whites+, keep/sell scenario pass). Public repo: `addmods-wowaddons`.
 
 ---
 

@@ -2,7 +2,7 @@
 ## Title: AutoSeller & Repair
 ## Notes: Auto-sell junk, remember dumps, keep by rules, auto-repair at merchants. Ascension-first.
 ## Author: jmacz12
-## Version: 0.3.9
+## Version: 0.3.10
 ## SavedVariables: MacTechAutoSellerDB
 ## X-Website: https://github.com/jmacz12/addmods-wowaddons/releases
 ## X-Curse-Project-ID:

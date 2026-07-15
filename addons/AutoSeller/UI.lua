@@ -184,7 +184,7 @@ function MT:CreateUI()
   title:SetPoint("TOPLEFT", 16, -16)
   title:SetText("AutoSeller & Repair")
 
-  SoftNote(panel, "Items you sell that aren't already covered by color rules stay on this auto-sell list.", 16, -40)
+  SoftNote(panel, "Right-click sell at a vendor to add whites/greens/etc. to this list (gray junk is skipped).", 16, -40)
 
   local body = MakeScrollBody(panel, -58)
   local y = -8

@@ -2,7 +2,7 @@ MacTechAutoSeller = MacTechAutoSeller or {}
 local MT = MacTechAutoSeller
 
 MT.ADDON_NAME = "AutoSeller & Repair"
-MT.VERSION = "0.3.9"
+MT.VERSION = "0.3.10"
 MT.CHAT_TAG = "|cff55ccffAutoSeller & Repair|r"
 MT.DONATE_URL = "https://donate.stripe.com/4gM5kF0hv5NJ1oW1WA6c001"
 MT.DOWNLOAD_URL = "https://github.com/jmacz12/addmods-wowaddons/releases"
